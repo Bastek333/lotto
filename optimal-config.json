@@ -1,0 +1,35 @@
+{
+  "minDraws": 50,
+  "shortTerm": 15,
+  "mediumTerm": 50,
+  "weights": "v1",
+  "weightValues": {
+    "freqShort": 0.25,
+    "freqMedium": 0.16,
+    "freqLong": 0.08,
+    "momentum": 0.17,
+    "pattern": 0.13,
+    "gap": 0.15,
+    "position": 0.04,
+    "cluster": 0.02
+  },
+  "performance": {
+    "avgMainMatches": 0.585,
+    "avgEuroMatches": 0.35,
+    "avgScore": 7.6,
+    "threeOrMorePct": "0.50"
+  },
+  "nextPrediction": {
+    "numbers": [
+      22,
+      30,
+      35,
+      41,
+      50
+    ],
+    "euroNumbers": [
+      5,
+      9
+    ]
+  }
+}

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Export Historical Draws Data</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #1976d2;
+      margin-bottom: 20px;
+    }
+    .info {
+      background: #e3f2fd;
+      border-left: 4px solid #1976d2;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    button {
+      background: #1976d2;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 10px 10px 0;
+    }
+    button:hover {
+      background: #1565c0;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .output {
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 4px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    .success {
+      color: #2e7d32;
+      font-weight: bold;
+    }
+    .error {
+      color: #c62828;
+      font-weight: bold;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .stat-card {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      border: 1px solid #dee2e6;
+    }
+    .stat-card strong {
+      display: block;
+      color: #1976d2;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 Export Historical EuroJackpot Draws</h1>
+    
+    <div class="info">
+      <p><strong>Instructions:</strong></p>
+      <ol>
+        <li>First, open the main Lotto application and let it load all historical draws</li>
+        <li>Then open this page</li>
+        <li>Click "Check LocalStorage" to verify cached data</li>
+        <li>Click "Export to JSON" to download the data file</li>
+        <li>Save the file as <code>eurojackpot_draws.json</code> in the <code>src/data</code> folder</li>
+      </ol>
+    </div>
+
+    <div class="stats" id="stats" style="display: none;">
+      <div class="stat-card">
+        <strong>Total Draws</strong>
+        <span id="totalDraws">0</span>
+      </div>
+      <div class="stat-card">
+        <strong>Date Range</strong>
+        <span id="dateRange">-</span>
+      </div>
+      <div class="stat-card">
+        <strong>Complete Draws</strong>
+        <span id="completeDraws">0</span>
+      </div>
+      <div class="stat-card">
+        <strong>Storage Size</strong>
+        <span id="storageSize">0 KB</span>
+      </div>
+    </div>
+
+    <div>
+      <button onclick="checkStorage()">📊 Check LocalStorage</button>
+      <button onclick="exportData()" id="exportBtn" disabled>💾 Export to JSON</button>
+      <button onclick="downloadJSON()" id="downloadBtn" disabled>⬇️ Download File</button>
+      <button onclick="copyToClipboard()" id="copyBtn" disabled>📋 Copy to Clipboard</button>
+    </div>
+
+    <div class="output" id="output">
+      Click "Check LocalStorage" to begin...
+    </div>
+  </div>
+
+  <script>
+    let cachedDraws = [];
+    let jsonData = '';
+
+    function log(message, type = 'info') {
+      const output = document.getElementById('output');
+      const timestamp = new Date().toLocaleTimeString();
+      const prefix = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
+      output.innerHTML += `[${timestamp}] ${prefix} ${message}\n`;
+      output.scrollTop = output.scrollHeight;
+    }
+
+    function checkStorage() {
+      const output = document.getElementById('output');
+      output.innerHTML = '';
+      
+      log('Checking localStorage for cached EuroJackpot draws...', 'info');
+      
+      try {
+        const CACHE_KEY = 'eurojackpot_draws_cache';
+        const CACHE_VERSION = 'v1';
+        const prefix = `${CACHE_KEY}_${CACHE_VERSION}_`;
+        
+        cachedDraws = [];
+        
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(prefix)) {
+            const cached = localStorage.getItem(key);
+            if (cached) {
+              try {
+                const draw = JSON.parse(cached);
+                cachedDraws.push(draw);
+              } catch (e) {
+                log(`Failed to parse draw from key: ${key}`, 'error');
+              }
+            }
+          }
+        }
+        
+        if (cachedDraws.length === 0) {
+          log('No cached draws found! Please load the main application first.', 'error');
+          document.getElementById('stats').style.display = 'none';
+          return;
+        }
+        
+        // Sort by date
+        cachedDraws.sort((a, b) => new Date(b.drawDate).getTime() - new Date(a.drawDate).getTime());
+        
+        // Calculate stats
+        const dates = cachedDraws.map(d => new Date(d.drawDate));
+        const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+        const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+        const completeDraws = cachedDraws.filter(d => d.numbers && d.numbers.length > 0).length;
+        
+        // Calculate storage size
+        const dataSize = JSON.stringify(cachedDraws).length;
+        const sizeKB = (dataSize / 1024).toFixed(2);
+        
+        // Update stats display
+        document.getElementById('totalDraws').textContent = cachedDraws.length;
+        document.getElementById('dateRange').textContent = 
+          `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
+        document.getElementById('completeDraws').textContent = completeDraws;
+        document.getElementById('storageSize').textContent = `${sizeKB} KB`;
+        document.getElementById('stats').style.display = 'grid';
+        
+        log(`Found ${cachedDraws.length} cached draws`, 'success');
+        log(`Date range: ${minDate.toLocaleDateString()} to ${maxDate.toLocaleDateString()}`, 'info');
+        log(`Complete draws: ${completeDraws}/${cachedDraws.length}`, 'info');
+        log(`Data size: ${sizeKB} KB`, 'info');
+        
+        // Enable export buttons
+        document.getElementById('exportBtn').disabled = false;
+        document.getElementById('downloadBtn').disabled = false;
+        document.getElementById('copyBtn').disabled = false;
+        
+      } catch (error) {
+        log(`Error checking localStorage: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+
+    function exportData() {
+      log('Converting draws to JSON format...', 'info');
+      
+      try {
+        jsonData = JSON.stringify(cachedDraws, null, 2);
+        log(`JSON data generated successfully (${(jsonData.length / 1024).toFixed(2)} KB)`, 'success');
+        log('Ready to download or copy!', 'success');
+      } catch (error) {
+        log(`Error generating JSON: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+
+    function downloadJSON() {
+      if (!jsonData) {
+        exportData();
+      }
+      
+      try {
+        const blob = new Blob([jsonData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `eurojackpot_draws_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        log('File downloaded successfully!', 'success');
+        log('Save this file as eurojackpot_draws.json in src/data folder', 'info');
+      } catch (error) {
+        log(`Error downloading file: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+
+    function copyToClipboard() {
+      if (!jsonData) {
+        exportData();
+      }
+      
+      navigator.clipboard.writeText(jsonData).then(() => {
+        log('JSON data copied to clipboard!', 'success');
+        log('Paste it into src/data/eurojackpot_draws.json', 'info');
+      }).catch(err => {
+        log(`Failed to copy to clipboard: ${err.message}`, 'error');
+        console.error(err);
+      });
+    }
+
+    // Auto-check on load if localStorage has data
+    window.addEventListener('load', () => {
+      log('Page loaded. Click "Check LocalStorage" to scan for cached draws.', 'info');
+    });
+  </script>
+</body>
+</html>
