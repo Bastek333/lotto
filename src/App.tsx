@@ -8,6 +8,7 @@ import FollowingDrawsAnalysis from './components/FollowingDrawsAnalysis'
 import ImprovedPrediction from './components/ImprovedPrediction'
 import AdvancedPredictor from './components/AdvancedPredictor'
 import AdaptivePredictor from './components/AdaptivePredictor'
+import BigNumberPredictor from './components/BigNumberPredictor'
 import { fetchEuroJackpotResults, getAllCachedDraws, getIncompleteCachedDates, downloadDrawsAsJson } from './api/eurojackpot'
 
 type Draw = {
@@ -18,7 +19,7 @@ type Draw = {
   jackpotAmount?: string
 }
 
-type TabType = 'results' | 'frequency' | 'combinations' | 'checker' | 'prediction' | 'following' | 'improved' | 'advanced' | 'adaptive'
+type TabType = 'results' | 'frequency' | 'combinations' | 'checker' | 'prediction' | 'following' | 'improved' | 'advanced' | 'adaptive' | 'bignumber'
 
 export default function App(): JSX.Element {
   const [data, setData] = useState<Draw[] | null>(null)
@@ -433,6 +434,13 @@ export default function App(): JSX.Element {
             🧬 Adaptive AI
           </button>
           <button
+            className={`tab ${activeTab === 'bignumber' ? 'active' : ''}`}
+            onClick={() => setActiveTab('bignumber')}
+            style={{ background: activeTab === 'bignumber' ? 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' : '', color: activeTab === 'bignumber' ? 'white' : '' }}
+          >
+            🔢 Big Number Pattern
+          </button>
+          <button
             className="tab"
             onClick={() => fetchData(true)}
             disabled={loading}
@@ -539,6 +547,9 @@ export default function App(): JSX.Element {
             )}
             {activeTab === 'adaptive' && (
               <AdaptivePredictor data={filteredDraws} />
+            )}
+            {activeTab === 'bignumber' && (
+              <BigNumberPredictor />
             )}
           </div>
         )}
