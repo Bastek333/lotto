@@ -44,8 +44,10 @@ export async function saveDrawsLocally(options: SaveDrawsOptions): Promise<any> 
  */
 export async function uploadDrawsToServer(options: SaveDrawsOptions): Promise<any> {
   try {
+    const uploadEndpoint = import.meta.env.DEV ? '/api/save-draws' : '/lottery-statistics/api-upload-draws.php'
+
     // Use the PHP proxy to upload data
-    const response = await fetch('/api-upload-draws.php', {
+    const response = await fetch(uploadEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

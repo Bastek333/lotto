@@ -62,19 +62,20 @@ if (!in_array($gameType, ['eurojackpot', 'lotto'])) {
 
 // Create server backup directory (if writable)
 $backupDir = __DIR__ . '/server-backups';
-$drawsDataDir = __DIR__ . '/data';
+$legacyDrawsDataDir = __DIR__ . '/data';
 
 // Try to create directories if they don't exist
 if (!is_dir($backupDir)) {
     @mkdir($backupDir, 0755, true);
 }
-if (!is_dir($drawsDataDir)) {
-    @mkdir($drawsDataDir, 0755, true);
+if (!is_dir($legacyDrawsDataDir)) {
+    @mkdir($legacyDrawsDataDir, 0755, true);
 }
 
 // Determine filenames
 $filename = $gameType === 'eurojackpot' ? 'eurojackpot_draws.json' : 'lotto_draws.json';
-$filepath = $drawsDataDir . '/' . $filename;
+$filepath = __DIR__ . '/' . $filename;
+$legacyFilepath = $legacyDrawsDataDir . '/' . $filename;
 $backupName = $gameType . '_draws_' . str_replace([':', '-'], '', $timestamp) . '.json';
 $backupPath = $backupDir . '/' . $backupName;
 
@@ -90,9 +91,10 @@ $response = [
 ];
 
 try {
-    // Create backup of existing file if it exists
-    if (file_exists($filepath)) {
-        $existingData = file_get_contents($filepath);
+    // Create backup of existing file if it exists (primary or legacy path)
+    $existingFileForBackup = file_exists($filepath) ? $filepath : $legacyFilepath;
+    if (file_exists($existingFileForBackup)) {
+        $existingData = file_get_contents($existingFileForBackup);
         if (@file_put_contents($backupPath, $existingData)) {
             $response['details']['backup'] = [
                 'name' => $backupName,

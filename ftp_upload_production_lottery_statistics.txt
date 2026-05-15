@@ -1,0 +1,15 @@
+open server611838.nazwa.pl
+user server611838 #3BasteK3#
+binary
+prompt
+mkdir public_html/lottery-statistics
+mkdir public_html/lottery-statistics/assets
+cd public_html/lottery-statistics
+mput dist/assets/*
+put dist/index.html
+put dist/lotto_draws.json
+put dist/eurojackpot_draws.json
+put public/api-proxy.php
+put public/api-upload-draws.php
+put public/api-draws.php
+bye

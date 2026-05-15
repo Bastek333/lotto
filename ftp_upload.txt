@@ -6,5 +6,9 @@ cd public_html/assets
 mput dist/assets/*
 cd ..
 put dist/index.html
+put dist/lotto_draws.json
+put dist/eurojackpot_draws.json
 put dist/api-proxy.php
+put dist/api-upload-draws.php
+put dist/api-draws.php
 bye

@@ -15,7 +15,11 @@ const BASE_URL = import.meta.env.DEV
   : 'https://developers.lotto.pl/api/open/v1'
 
 // PHP proxy URL for production (bypasses CORS)
-const PROXY_URL = '/api-proxy.php'
+const PROXY_URL = '/lottery-statistics/api-proxy.php'
+
+// Server storage endpoints (shared JSON files in /lottery-statistics)
+const READ_DRAWS_ENDPOINT = import.meta.env.DEV ? '/api/draws' : '/lottery-statistics/api-draws.php'
+const SAVE_DRAWS_ENDPOINT = import.meta.env.DEV ? '/api/save-draws' : '/lottery-statistics/api-upload-draws.php'
 
 // Rate limiting: delay between requests to avoid 429 errors
 const REQUEST_DELAY_MS = 500 // 500ms between requests
@@ -182,7 +186,7 @@ export async function saveDrawsToBackend(uploadToServer: boolean = false): Promi
 
     console.log(`📤 Saving ${draws.length} EuroJackpot draws...`)
 
-    const response = await fetch('/api/save-draws', {
+    const response = await fetch(SAVE_DRAWS_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -207,6 +211,36 @@ export async function saveDrawsToBackend(uploadToServer: boolean = false): Promi
     console.log('Falling back to browser download...')
     downloadDrawsAsJson()
     return null
+  }
+}
+
+/**
+ * Load saved draws from server-side JSON and hydrate local cache.
+ * Used at app startup to render data quickly before API refresh.
+ */
+export async function fetchSavedDrawsFromServer(): Promise<EuroJackpotDraw[]> {
+  try {
+    const response = await fetch(`${READ_DRAWS_ENDPOINT}?gameType=eurojackpot`, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      return []
+    }
+
+    const data = await response.json()
+    if (!Array.isArray(data)) {
+      return []
+    }
+
+    const draws = sortAndDeduplicate(data as EuroJackpotDraw[])
+    hydrateLocalCache(draws)
+    return draws
+  } catch (error) {
+    console.warn('Error loading saved EuroJackpot draws from server:', error)
+    return []
   }
 }
 
@@ -470,6 +504,23 @@ function sortAndDeduplicate(draws: EuroJackpotDraw[]): EuroJackpotDraw[] {
   
   console.log(`  Deduplicated: ${draws.length} → ${uniqueDraws.length} unique draws`)
   return uniqueDraws
+}
+
+function hydrateLocalCache(draws: EuroJackpotDraw[]): void {
+  for (const draw of draws) {
+    const cacheDate = getCacheDate(draw.drawDate, draw.drawSystemId)
+    saveCachedDraw(cacheDate, draw)
+  }
+}
+
+function getCacheDate(drawDate: string, drawSystemId: number): string {
+  const parsed = new Date(drawDate)
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0]
+  }
+
+  // Fallback keeps entry accessible even for legacy/non-ISO date formats.
+  return `draw_${drawSystemId}`
 }
 
 

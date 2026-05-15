@@ -11,6 +11,7 @@ import AdaptivePredictor from './components/AdaptivePredictor'
 import BigNumberPredictor from './components/BigNumberPredictor'
 import {
   fetchEuroJackpotResults,
+  fetchSavedDrawsFromServer as fetchSavedEuroJackpotDrawsFromServer,
   getAllCachedDraws as getAllCachedEuroJackpotDraws,
   getIncompleteCachedDates as getIncompleteEuroJackpotDates,
   clearDrawsCache as clearEuroJackpotDrawsCache,
@@ -18,6 +19,7 @@ import {
 } from './api/eurojackpot'
 import {
   fetchLottoResults,
+  fetchSavedDrawsFromServer as fetchSavedLottoDrawsFromServer,
   getAllCachedDraws as getAllCachedLottoDraws,
   getIncompleteCachedDates as getIncompleteLottoDates,
   clearDrawsCache as clearLottoDrawsCache,
@@ -26,6 +28,7 @@ import {
 import { applyDomTranslations, type Language } from './utils/domI18n'
 
 type GameType = 'eurojackpot' | 'lotto'
+type DataSource = 'none' | 'server-json' | 'local-cache' | 'api-live'
 
 type Draw = {
   drawDate: string
@@ -56,6 +59,9 @@ export default function App(): JSX.Element {
   const [rangeTo, setRangeTo] = useState<number>(0)
   const [optimalRange, setOptimalRange] = useState<{from: number, to: number, score: number, algorithm: string} | null>(null)
   const [isPredictionsMenuOpen, setIsPredictionsMenuOpen] = useState<boolean>(false)
+  const [dataSource, setDataSource] = useState<DataSource>('none')
+  const [lastServerSaveAt, setLastServerSaveAt] = useState<string | null>(null)
+  const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null)
   const activeGameRef = useRef<GameType>(gameType)
 
   const predictionTabs: Array<{ key: TabType; label: string }> = [
@@ -87,15 +93,24 @@ export default function App(): JSX.Element {
     clearLottoDrawsCache()
   }
 
+  const getSavedServerDraws = async (selectedGame: GameType = gameType) => {
+    return selectedGame === 'eurojackpot'
+      ? await fetchSavedEuroJackpotDrawsFromServer()
+      : await fetchSavedLottoDrawsFromServer()
+  }
+
   const persistCurrentGameDraws = async (selectedGame: GameType = gameType) => {
     try {
       if (selectedGame === 'eurojackpot') {
-        await saveEuroJackpotDrawsToBackend(false)
+        const result = await saveEuroJackpotDrawsToBackend(false)
+        return Boolean(result?.success)
       } else {
-        await saveLottoDrawsToBackend(false)
+        const result = await saveLottoDrawsToBackend(false)
+        return Boolean(result?.success)
       }
     } catch (error) {
       console.warn(`Failed to persist ${selectedGame} draws to backend:`, error)
+      return false
     }
   }
 
@@ -136,29 +151,41 @@ export default function App(): JSX.Element {
     setError(null)
     
     try {
-      // First, load cached data immediately (unless forcing refetch)
+      // First, load server-saved data (unless forcing refetch)
       if (!forceRefetch) {
+        const serverDraws = await getSavedServerDraws(selectedGame)
+        const normalizedServerDraws = normalizeDrawsForGame(serverDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
+
+        if (serverDraws.length > 0 && isLikelyValidDataset(normalizedServerDraws, selectedGame)) {
+          console.log(`Loaded ${serverDraws.length} ${selectedGame} draws from server JSON`)
+          if (activeGameRef.current === selectedGame) {
+            setData(normalizedServerDraws)
+            setDataSource('server-json')
+            setLastRefreshAt(new Date().toISOString())
+          }
+        }
+
+        // Fallback to browser cache if server data is unavailable
         const cachedDraws = getAllCachedDraws(selectedGame)
         const normalizedCachedDraws = normalizeDrawsForGame(cachedDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
 
-        if (cachedDraws.length > 0 && isLikelyValidDataset(normalizedCachedDraws, selectedGame)) {
+        if (serverDraws.length === 0 && cachedDraws.length > 0 && isLikelyValidDataset(normalizedCachedDraws, selectedGame)) {
           console.log(`Loaded ${cachedDraws.length} draws from cache`)
-          if (activeGameRef.current !== selectedGame) {
-            return
-          }
-          setData(normalizedCachedDraws)
-          
-          // Check for incomplete draws
-          const incompleteDates = getIncompleteCachedDates(selectedGame)
-          if (incompleteDates.length > 0) {
-            console.log(`Found ${incompleteDates.length} draws with missing numbers, refetching those dates...`)
-            // Refetch only incomplete dates in the background
-            setTimeout(() => fetchIncompleteDraws(selectedGame), 100)
-            return
+          if (activeGameRef.current === selectedGame) {
+            setData(normalizedCachedDraws)
+            setDataSource('local-cache')
+            setLastRefreshAt(new Date().toISOString())
           }
         } else if (cachedDraws.length > 0) {
           console.warn(`Ignoring invalid ${selectedGame} cache dataset (${cachedDraws.length} draws)`)
           clearCurrentGameCache(selectedGame)
+        }
+
+        // If cache contains incomplete rows, update those in background while full refresh continues.
+        const incompleteDates = getIncompleteCachedDates(selectedGame)
+        if (incompleteDates.length > 0) {
+          console.log(`Found ${incompleteDates.length} draws with missing numbers, refetching those dates in background...`)
+          setTimeout(() => fetchIncompleteDraws(selectedGame), 100)
         }
       }
       
@@ -173,7 +200,12 @@ export default function App(): JSX.Element {
         return
       }
       setData(draws)
-      await persistCurrentGameDraws(selectedGame)
+      setDataSource('api-live')
+      setLastRefreshAt(new Date().toISOString())
+      const saved = await persistCurrentGameDraws(selectedGame)
+      if (saved) {
+        setLastServerSaveAt(new Date().toISOString())
+      }
     } catch (e: any) {
       const gameName = selectedGame === 'eurojackpot' ? 'EuroJackpot' : 'Lotto'
       console.error('Failed to load real results', e)
@@ -203,7 +235,12 @@ export default function App(): JSX.Element {
         return
       }
       setData(draws)
-      await persistCurrentGameDraws(selectedGame)
+      setDataSource('api-live')
+      setLastRefreshAt(new Date().toISOString())
+      const saved = await persistCurrentGameDraws(selectedGame)
+      if (saved) {
+        setLastServerSaveAt(new Date().toISOString())
+      }
     } catch (e: any) {
       console.error('Failed to refetch incomplete draws', e)
       // Don't show error, keep existing data
@@ -349,64 +386,24 @@ export default function App(): JSX.Element {
     // Reset drawsCount and rangeTo so new game data is always shown fully
     activeGameRef.current = gameType
     setData(null)
-    setDrawsCount(0);
-    setRangeTo(0);
-    // Check if there's cached data
-    const selectedGame = gameType
-    const cachedDraws = getAllCachedDraws(selectedGame);
-    const normalizedCachedDraws = normalizeDrawsForGame(cachedDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
+    setDrawsCount(0)
+    setRangeTo(0)
 
-    if (cachedDraws.length === 0 || !isLikelyValidDataset(normalizedCachedDraws, selectedGame)) {
-      if (cachedDraws.length > 0) {
-        console.warn(`Clearing invalid ${selectedGame} cache before reload`)
-        clearCurrentGameCache(selectedGame)
-      }
-
-      // Try to fetch from server file first
-      const gameName = selectedGame === 'eurojackpot' ? 'eurojackpot' : 'lotto';
-      fetch(`/api/draws?gameType=${gameName}`)
-        .then(async (res) => {
-          if (!res.ok) throw new Error('No draws file on server');
-          return await res.json();
-        })
-        .then((serverDraws: Array<Draw & { jackpotAmount?: string | number }>) => {
-          const normalizedServerDraws = Array.isArray(serverDraws)
-            ? normalizeDrawsForGame(serverDraws, selectedGame)
-            : []
-
-          if (normalizedServerDraws.length > 0 && isLikelyValidDataset(normalizedServerDraws, selectedGame)) {
-            // Save each draw to localStorage using the same cache key logic
-            const prefix = selectedGame === 'eurojackpot' ? 'eurojackpot_draws_cache_v1_' : 'lotto_draws_cache_v1_';
-            serverDraws.forEach((draw: Draw & { jackpotAmount?: string | number }) => {
-              if (draw && draw.drawDate) {
-                const key = `${prefix}${draw.drawDate}`;
-                localStorage.setItem(key, JSON.stringify(draw));
-              }
-            });
-            if (activeGameRef.current !== selectedGame) {
-              return
-            }
-            // Set state from loaded draws
-            setData(normalizedServerDraws);
-            setDrawsCount(serverDraws.length);
-            setRangeTo(serverDraws.length);
-            // After populating, fetchData will check for incomplete draws and update if needed
-            setTimeout(() => fetchData(false, selectedGame), 100);
-            return;
-          } else {
-            console.warn(`Ignoring invalid ${selectedGame} server dataset`)
-            fetchData(false, selectedGame);
-          }
-        })
-        .catch(() => {
-          // If error, fallback to API fetch
-          fetchData(false, selectedGame);
-        });
-    } else {
-      // Fetch data (will check cache first if data exists)
-      fetchData(false, selectedGame);
-    }
+    // Unified startup flow: server JSON first, then API refresh.
+    fetchData(false, gameType)
   }, [gameType]);
+
+  const statusSourceLabel = (() => {
+    if (dataSource === 'server-json') return 'Server JSON'
+    if (dataSource === 'local-cache') return 'Browser cache'
+    if (dataSource === 'api-live') return 'Lotto API (live)'
+    return 'No data source yet'
+  })()
+
+  const formatStatusTime = (isoTime: string | null) => {
+    if (!isoTime) return 'n/a'
+    return new Date(isoTime).toLocaleString()
+  }
 
   // Set drawsCount and rangeTo to total data length when data loads
   useEffect(() => {
@@ -552,6 +549,19 @@ export default function App(): JSX.Element {
         </div>
         
         <div className="header-controls">
+          <div
+            style={{
+              marginBottom: '10px',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              background: '#f7faff',
+              border: '1px solid #cfe3ff',
+              fontSize: '13px',
+              color: '#1d3a5f'
+            }}
+          >
+            <strong>Data status:</strong> source {statusSourceLabel} | loaded {formatStatusTime(lastRefreshAt)} | last server save {formatStatusTime(lastServerSaveAt)}
+          </div>
           <div className="draws-control">
             <label>
               <input
