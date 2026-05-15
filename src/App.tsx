@@ -38,6 +38,13 @@ type Draw = {
   jackpotAmount?: string
 }
 
+type GapBackfillStatus = {
+  at: string
+  fromDate: string
+  fetchedCount: number
+  addedCount: number
+}
+
 type TabType = 'results' | 'frequency' | 'combinations' | 'checker' | 'prediction' | 'following' | 'improved' | 'advanced' | 'adaptive' | 'bignumber'
 
 export default function App(): JSX.Element {
@@ -62,6 +69,7 @@ export default function App(): JSX.Element {
   const [dataSource, setDataSource] = useState<DataSource>('none')
   const [lastServerSaveAt, setLastServerSaveAt] = useState<string | null>(null)
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null)
+  const [lastGapBackfill, setLastGapBackfill] = useState<GapBackfillStatus | null>(null)
   const activeGameRef = useRef<GameType>(gameType)
 
   const predictionTabs: Array<{ key: TabType; label: string }> = [
@@ -164,6 +172,51 @@ export default function App(): JSX.Element {
     return draws.length > 0 ? draws[0].drawDate : null
   }
 
+  const getOldestDrawDate = (draws: Draw[]): string | null => {
+    return draws.length > 0 ? draws[draws.length - 1].drawDate : null
+  }
+
+  const toDateKey = (dateValue: string): string => new Date(dateValue).toISOString().split('T')[0]
+
+  const isExpectedDrawDay = (date: Date, selectedGame: GameType): boolean => {
+    const dayOfWeek = date.getDay()
+    if (selectedGame === 'eurojackpot') {
+      return dayOfWeek === 2 || dayOfWeek === 5
+    }
+    return dayOfWeek === 2 || dayOfWeek === 4 || dayOfWeek === 6
+  }
+
+  const findEarliestMissingDrawDate = (draws: Draw[], selectedGame: GameType): string | null => {
+    if (draws.length < 2) {
+      return null
+    }
+
+    const normalizedDateKeys = new Set(draws.map(draw => toDateKey(draw.drawDate)))
+    const oldestDateValue = getOldestDrawDate(draws)
+    const newestDateValue = getMostRecentDrawDate(draws)
+
+    if (!oldestDateValue || !newestDateValue) {
+      return null
+    }
+
+    const currentDate = new Date(oldestDateValue)
+    currentDate.setHours(0, 0, 0, 0)
+    const newestDate = new Date(newestDateValue)
+    newestDate.setHours(0, 0, 0, 0)
+
+    while (currentDate <= newestDate) {
+      if (isExpectedDrawDay(currentDate, selectedGame)) {
+        const dateKey = currentDate.toISOString().split('T')[0]
+        if (!normalizedDateKeys.has(dateKey)) {
+          return dateKey
+        }
+      }
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
+
+    return null
+  }
+
   // Function to fetch data from API
   const fetchData = async (forceRefetch: boolean = false, selectedGame: GameType = gameType) => {
     setLoading(true)
@@ -212,10 +265,28 @@ export default function App(): JSX.Element {
 
         if (hasServerBaseline) {
           const gameName = selectedGame === 'eurojackpot' ? 'EuroJackpot' : 'Lotto'
+          let gapBackfillStatus: GapBackfillStatus | null = null
           console.log(`Checking for updated ${gameName} data from ${incrementalStartDate ? new Date(incrementalStartDate).toISOString().split('T')[0] : '2017-01-03'} to current...`)
           const apiDraws = await fetchResults(false, selectedGame, incrementalStartDate)
           const incrementalDraws = normalizeDrawsForGame(apiDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
-          const mergedDraws = mergeAndDeduplicateDraws(normalizedServerDraws.length > 0 ? normalizedServerDraws : normalizedCachedDraws, incrementalDraws)
+          let mergedDraws = mergeAndDeduplicateDraws(normalizedServerDraws.length > 0 ? normalizedServerDraws : normalizedCachedDraws, incrementalDraws)
+
+          const earliestMissingDate = findEarliestMissingDrawDate(mergedDraws, selectedGame)
+          if (earliestMissingDate) {
+            console.log(`Detected missing ${gameName} draws from ${earliestMissingDate}, backfilling that range...`)
+            const beforeGapBackfillCount = mergedDraws.length
+            const gapFillApiDraws = await fetchResults(false, selectedGame, earliestMissingDate)
+            const gapFillDraws = normalizeDrawsForGame(gapFillApiDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
+            mergedDraws = mergeAndDeduplicateDraws(mergedDraws, gapFillDraws)
+            const addedCount = Math.max(mergedDraws.length - beforeGapBackfillCount, 0)
+            gapBackfillStatus = {
+              at: new Date().toISOString(),
+              fromDate: earliestMissingDate,
+              fetchedCount: gapFillDraws.length,
+              addedCount
+            }
+            console.log(`Backfilled ${gapFillDraws.length} draws from missing range, ${mergedDraws.length} total after merge`)
+          }
 
           console.log(`Loaded ${incrementalDraws.length} incremental draws from API, ${mergedDraws.length} total after merge`)
           if (activeGameRef.current !== selectedGame) {
@@ -224,6 +295,7 @@ export default function App(): JSX.Element {
           setData(mergedDraws)
           setDataSource(incrementalDraws.length > 0 ? 'api-live' : (serverState.draws.length > 0 ? 'server-json' : 'local-cache'))
           setLastRefreshAt(new Date().toISOString())
+          setLastGapBackfill(gapBackfillStatus)
           const saved = await persistCurrentGameDraws(mergedDraws, selectedGame)
           if (saved) {
             setLastServerSaveAt(new Date().toISOString())
@@ -245,6 +317,7 @@ export default function App(): JSX.Element {
       setData(draws)
       setDataSource('api-live')
       setLastRefreshAt(new Date().toISOString())
+      setLastGapBackfill(null)
       const saved = await persistCurrentGameDraws(draws, selectedGame)
       if (saved) {
         setLastServerSaveAt(new Date().toISOString())
@@ -431,6 +504,7 @@ export default function App(): JSX.Element {
     setData(null)
     setDrawsCount(0)
     setRangeTo(0)
+    setLastGapBackfill(null)
 
     // Unified startup flow: server JSON first, then API refresh.
     fetchData(false, gameType)
@@ -447,6 +521,10 @@ export default function App(): JSX.Element {
     if (!isoTime) return 'n/a'
     return new Date(isoTime).toLocaleString()
   }
+
+  const gapBackfillStatusLabel = lastGapBackfill
+    ? `${formatStatusTime(lastGapBackfill.at)} (from ${lastGapBackfill.fromDate}, fetched ${lastGapBackfill.fetchedCount}, added ${lastGapBackfill.addedCount})`
+    : 'none'
 
   // Set drawsCount and rangeTo to total data length when data loads
   useEffect(() => {
@@ -603,7 +681,7 @@ export default function App(): JSX.Element {
               color: '#1d3a5f'
             }}
           >
-            <strong>Data status:</strong> source {statusSourceLabel} | loaded {formatStatusTime(lastRefreshAt)} | last server save {formatStatusTime(lastServerSaveAt)}
+            <strong>Data status:</strong> source {statusSourceLabel} | loaded {formatStatusTime(lastRefreshAt)} | last server save {formatStatusTime(lastServerSaveAt)} | gap backfill {gapBackfillStatusLabel}
           </div>
           <div className="draws-control">
             <label>
