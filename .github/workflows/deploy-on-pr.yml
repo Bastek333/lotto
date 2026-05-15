@@ -1,18 +1,13 @@
 name: Build and Deploy Lottery Statistics
 
 on:
-  pull_request:
+  push:
     branches:
-      - master
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
+      - main
   workflow_dispatch:
 
 concurrency:
-  group: lottery-statistics-${{ github.event.pull_request.number || github.ref }}
+  group: lottery-statistics-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -43,7 +38,6 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
       - name: Checkout
