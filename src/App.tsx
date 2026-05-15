@@ -104,13 +104,13 @@ export default function App(): JSX.Element {
     }
   }
 
-  const persistCurrentGameDraws = async (selectedGame: GameType = gameType) => {
+  const persistCurrentGameDraws = async (drawsToSave: Draw[], selectedGame: GameType = gameType) => {
     try {
       if (selectedGame === 'eurojackpot') {
-        const result = await saveEuroJackpotDrawsToBackend(false)
+        const result = await saveEuroJackpotDrawsToBackend(false, drawsToSave)
         return Boolean(result?.success)
       } else {
-        const result = await saveLottoDrawsToBackend(false)
+        const result = await saveLottoDrawsToBackend(false, drawsToSave)
         return Boolean(result?.success)
       }
     } catch (error) {
@@ -224,7 +224,7 @@ export default function App(): JSX.Element {
           setData(mergedDraws)
           setDataSource(incrementalDraws.length > 0 ? 'api-live' : (serverState.draws.length > 0 ? 'server-json' : 'local-cache'))
           setLastRefreshAt(new Date().toISOString())
-          const saved = await persistCurrentGameDraws(selectedGame)
+          const saved = await persistCurrentGameDraws(mergedDraws, selectedGame)
           if (saved) {
             setLastServerSaveAt(new Date().toISOString())
           }
@@ -245,7 +245,7 @@ export default function App(): JSX.Element {
       setData(draws)
       setDataSource('api-live')
       setLastRefreshAt(new Date().toISOString())
-      const saved = await persistCurrentGameDraws(selectedGame)
+      const saved = await persistCurrentGameDraws(draws, selectedGame)
       if (saved) {
         setLastServerSaveAt(new Date().toISOString())
       }
@@ -280,7 +280,7 @@ export default function App(): JSX.Element {
       setData(draws)
       setDataSource('api-live')
       setLastRefreshAt(new Date().toISOString())
-      const saved = await persistCurrentGameDraws(selectedGame)
+      const saved = await persistCurrentGameDraws(draws, selectedGame)
       if (saved) {
         setLastServerSaveAt(new Date().toISOString())
       }

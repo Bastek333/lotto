@@ -44,6 +44,47 @@ app.use(express.json({ limit: '50mb' }))
 const DATA_DIR = path.join(__dirname, 'src', 'data')
 const BACKUP_DIR = path.join(__dirname, 'server-backups')
 
+function getCompletenessScore(draw) {
+  const mainCount = Array.isArray(draw?.numbers) ? draw.numbers.length : 0
+  const euroCount = Array.isArray(draw?.euroNumbers) ? draw.euroNumbers.length : 0
+  return (mainCount * 100) + euroCount
+}
+
+function normalizeDrawCollection(raw) {
+  if (Array.isArray(raw)) {
+    return raw
+  }
+  if (raw && Array.isArray(raw.draws)) {
+    return raw.draws
+  }
+  return []
+}
+
+function mergeDrawsByDate(existingDraws, incomingDraws) {
+  const merged = new Map()
+
+  for (const draw of existingDraws) {
+    if (!draw || !draw.drawDate) continue
+    merged.set(draw.drawDate, draw)
+  }
+
+  for (const draw of incomingDraws) {
+    if (!draw || !draw.drawDate) continue
+
+    const current = merged.get(draw.drawDate)
+    if (!current) {
+      merged.set(draw.drawDate, draw)
+      continue
+    }
+
+    if (getCompletenessScore(draw) >= getCompletenessScore(current)) {
+      merged.set(draw.drawDate, { ...current, ...draw })
+    }
+  }
+
+  return [...merged.values()].sort((a, b) => new Date(b.drawDate).getTime() - new Date(a.drawDate).getTime())
+}
+
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true })
@@ -85,17 +126,26 @@ app.post('/api/save-draws', (req, res) => {
       }
     }
 
-    // Write new data
-    const jsonData = JSON.stringify(draws, null, 2)
+    const existingRaw = fs.existsSync(filepath) ? JSON.parse(fs.readFileSync(filepath, 'utf8')) : []
+    const existingDraws = normalizeDrawCollection(existingRaw)
+    const mergedDraws = mergeDrawsByDate(existingDraws, draws)
+
+    // Write merged data
+    const jsonData = JSON.stringify(mergedDraws, null, 2)
     fs.writeFileSync(filepath, jsonData)
 
-    console.log(`✓ Saved ${draws.length} ${gameType} draws to ${filename}`)
+    console.log(`✓ Saved ${mergedDraws.length} ${gameType} draws to ${filename} (incoming ${draws.length})`)
 
     res.json({
       success: true,
-      message: `Saved ${draws.length} draws to ${filename}`,
+      message: `Saved ${mergedDraws.length} draws to ${filename}`,
       filepath,
-      drawsCount: draws.length,
+      drawsCount: mergedDraws.length,
+      merged: {
+        existingCount: existingDraws.length,
+        incomingCount: draws.length,
+        resultCount: mergedDraws.length
+      },
       gameType
     })
   } catch (error) {

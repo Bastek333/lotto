@@ -90,6 +90,55 @@ $response = [
     ]
 ];
 
+function normalizeDrawCollection($raw): array {
+    if (is_array($raw) && isset($raw['draws']) && is_array($raw['draws'])) {
+        return $raw['draws'];
+    }
+    return is_array($raw) ? $raw : [];
+}
+
+function drawCompletenessScore(array $draw): int {
+    $mainCount = isset($draw['numbers']) && is_array($draw['numbers']) ? count($draw['numbers']) : 0;
+    $euroCount = isset($draw['euroNumbers']) && is_array($draw['euroNumbers']) ? count($draw['euroNumbers']) : 0;
+    return ($mainCount * 100) + $euroCount;
+}
+
+function mergeDrawsByDate(array $existingDraws, array $incomingDraws): array {
+    $merged = [];
+
+    foreach ($existingDraws as $draw) {
+        if (!is_array($draw) || empty($draw['drawDate'])) {
+            continue;
+        }
+        $merged[$draw['drawDate']] = $draw;
+    }
+
+    foreach ($incomingDraws as $draw) {
+        if (!is_array($draw) || empty($draw['drawDate'])) {
+            continue;
+        }
+
+        $dateKey = $draw['drawDate'];
+        if (!isset($merged[$dateKey])) {
+            $merged[$dateKey] = $draw;
+            continue;
+        }
+
+        $existingScore = drawCompletenessScore($merged[$dateKey]);
+        $incomingScore = drawCompletenessScore($draw);
+        if ($incomingScore >= $existingScore) {
+            $merged[$dateKey] = array_merge($merged[$dateKey], $draw);
+        }
+    }
+
+    $mergedDraws = array_values($merged);
+    usort($mergedDraws, function ($a, $b) {
+        return strtotime($b['drawDate']) <=> strtotime($a['drawDate']);
+    });
+
+    return $mergedDraws;
+}
+
 try {
     // Create backup of existing file if it exists (primary or legacy path)
     $existingFileForBackup = file_exists($filepath) ? $filepath : $legacyFilepath;
@@ -103,15 +152,27 @@ try {
         }
     }
 
-    // Write new data with metadata so the app can fetch incrementally next time
+    $existingRaw = [];
+    $existingPath = file_exists($filepath) ? $filepath : $legacyFilepath;
+    if (file_exists($existingPath)) {
+        $decoded = json_decode(file_get_contents($existingPath), true);
+        if (is_array($decoded)) {
+            $existingRaw = $decoded;
+        }
+    }
+
+    $existingDraws = normalizeDrawCollection($existingRaw);
+    $mergedDraws = mergeDrawsByDate($existingDraws, $draws);
+
+    // Write merged data with metadata so the app can fetch incrementally next time
     $payload = [
         'meta' => [
             'gameType' => $gameType,
             'lastFetchedAt' => $timestamp,
-            'drawsCount' => count($draws),
+            'drawsCount' => count($mergedDraws),
             'source' => $source
         ],
-        'draws' => $draws
+        'draws' => $mergedDraws
     ];
 
     $jsonData = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
@@ -122,6 +183,11 @@ try {
         $response['details']['saved'] = [
             'filepath' => $filepath,
             'size' => strlen($jsonData)
+        ];
+        $response['details']['merged'] = [
+            'existingCount' => count($existingDraws),
+            'incomingCount' => count($draws),
+            'resultCount' => count($mergedDraws)
         ];
         http_response_code(200);
     } else {

@@ -1,0 +1,105 @@
+src/components/AdaptivePredictor.tsx(161,9): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/AdaptivePredictor.tsx(241,13): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/AdaptivePredictor.tsx(242,9): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/AdaptivePredictor.tsx(610,64): error TS18048: 'actualDraw.euroNumbers' is possibly 'undefined'.
+src/components/AdvancedPredictor.tsx(178,7): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/AdvancedPredictor.tsx(217,13): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/AdvancedPredictor.tsx(222,63): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/AdvancedPredictor.tsx(322,13): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/AdvancedPredictor.tsx(595,64): error TS18048: 'targetDraw.euroNumbers' is possibly 'undefined'.
+src/components/AdvancedPredictor.tsx(604,11): error TS2322: Type 'number[] | undefined' is not assignable to type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/AdvancedPredictor.tsx(662,32): error TS2488: Type 'number[] | undefined' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/components/ImprovedPrediction.tsx(2543,24): error TS18048: 'nums1' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2548,24): error TS18048: 'nums2' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2969,62): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(2986,64): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3003,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3020,58): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3037,60): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3054,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3071,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3088,62): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3105,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3122,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3139,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3156,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3173,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3190,60): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3207,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3224,64): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3241,64): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3258,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3275,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3292,64): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3309,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3326,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3343,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3360,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3377,58): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3394,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3411,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3428,58): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3445,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3462,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3479,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3496,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3513,58): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3530,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3547,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3564,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3581,58): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3598,62): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3615,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3632,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/utils/backtestAlgorithms.ts(86,9): error TS18048: 'actualDraw.euroNumbers' is possibly 'undefined'.
+src/utils/backtestAlgorithms.ts(100,11): error TS2322: Type 'number[] | undefined' is not assignable to type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/utils/backtestAlgorithms.ts(218,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(83,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(185,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(248,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(252,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(305,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(383,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(480,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.

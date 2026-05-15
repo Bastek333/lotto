@@ -175,9 +175,27 @@ export function downloadDrawsAsJson(): void {
  * Save all draws to local backend and optionally to remote server
  * This is the new comprehensive save function
  */
-export async function saveDrawsToBackend(uploadToServer: boolean = false): Promise<any> {
+type PersistableEuroJackpotDraw = Omit<Partial<EuroJackpotDraw>, 'jackpotAmount' | 'drawSystemId'> & {
+  drawDate: string
+  numbers: number[]
+  drawSystemId?: number
+  euroNumbers?: number[]
+  jackpot?: string
+  jackpotAmount?: number | string
+}
+
+export async function saveDrawsToBackend(uploadToServer: boolean = false, drawsToSave?: PersistableEuroJackpotDraw[]): Promise<any> {
   try {
-    const draws = getAllCachedDraws()
+    const normalizedDraws = drawsToSave?.map(draw => ({
+      ...draw,
+      drawSystemId: typeof draw.drawSystemId === 'number' ? draw.drawSystemId : 0,
+      euroNumbers: Array.isArray(draw.euroNumbers) ? draw.euroNumbers : [],
+      jackpotAmount: typeof draw.jackpotAmount === 'string' ? Number(draw.jackpotAmount) : draw.jackpotAmount
+    })) as EuroJackpotDraw[] | undefined
+
+    const draws = drawsToSave && drawsToSave.length > 0
+      ? sortAndDeduplicate(normalizedDraws ?? [])
+      : getAllCachedDraws()
     
     if (draws.length === 0) {
       console.warn('No draws to save')
