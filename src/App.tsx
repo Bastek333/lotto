@@ -186,7 +186,7 @@ export default function App(): JSX.Element {
     return dayOfWeek === 2 || dayOfWeek === 4 || dayOfWeek === 6
   }
 
-  const findEarliestMissingDrawDate = (draws: Draw[], selectedGame: GameType): string | null => {
+  const findNewestMissingDrawDate = (draws: Draw[], selectedGame: GameType): string | null => {
     if (draws.length < 2) {
       return null
     }
@@ -199,19 +199,21 @@ export default function App(): JSX.Element {
       return null
     }
 
-    const currentDate = new Date(oldestDateValue)
+    const currentDate = new Date(newestDateValue)
     currentDate.setHours(0, 0, 0, 0)
     const newestDate = new Date(newestDateValue)
     newestDate.setHours(0, 0, 0, 0)
+    const oldestDate = new Date(oldestDateValue)
+    oldestDate.setHours(0, 0, 0, 0)
 
-    while (currentDate <= newestDate) {
+    while (currentDate >= oldestDate) {
       if (isExpectedDrawDay(currentDate, selectedGame)) {
         const dateKey = currentDate.toISOString().split('T')[0]
         if (!normalizedDateKeys.has(dateKey)) {
           return dateKey
         }
       }
-      currentDate.setDate(currentDate.getDate() + 1)
+      currentDate.setDate(currentDate.getDate() - 1)
     }
 
     return null
@@ -271,17 +273,17 @@ export default function App(): JSX.Element {
           const incrementalDraws = normalizeDrawsForGame(apiDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
           let mergedDraws = mergeAndDeduplicateDraws(normalizedServerDraws.length > 0 ? normalizedServerDraws : normalizedCachedDraws, incrementalDraws)
 
-          const earliestMissingDate = findEarliestMissingDrawDate(mergedDraws, selectedGame)
-          if (earliestMissingDate) {
-            console.log(`Detected missing ${gameName} draws from ${earliestMissingDate}, backfilling that range...`)
+          const newestMissingDate = findNewestMissingDrawDate(mergedDraws, selectedGame)
+          if (newestMissingDate) {
+            console.log(`Detected missing ${gameName} draws near latest history at ${newestMissingDate}, backfilling from that date...`)
             const beforeGapBackfillCount = mergedDraws.length
-            const gapFillApiDraws = await fetchResults(false, selectedGame, earliestMissingDate)
+            const gapFillApiDraws = await fetchResults(false, selectedGame, newestMissingDate)
             const gapFillDraws = normalizeDrawsForGame(gapFillApiDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
             mergedDraws = mergeAndDeduplicateDraws(mergedDraws, gapFillDraws)
             const addedCount = Math.max(mergedDraws.length - beforeGapBackfillCount, 0)
             gapBackfillStatus = {
               at: new Date().toISOString(),
-              fromDate: earliestMissingDate,
+              fromDate: newestMissingDate,
               fetchedCount: gapFillDraws.length,
               addedCount
             }
