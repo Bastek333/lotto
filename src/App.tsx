@@ -93,10 +93,15 @@ export default function App(): JSX.Element {
     clearLottoDrawsCache()
   }
 
-  const getSavedServerDraws = async (selectedGame: GameType = gameType) => {
-    return selectedGame === 'eurojackpot'
+  const getSavedServerDraws = async (selectedGame: GameType = gameType): Promise<{ draws: Draw[]; lastFetchedAt: string | null }> => {
+    const result = selectedGame === 'eurojackpot'
       ? await fetchSavedEuroJackpotDrawsFromServer()
       : await fetchSavedLottoDrawsFromServer()
+
+    return {
+      draws: result.draws as Draw[],
+      lastFetchedAt: result.lastFetchedAt
+    }
   }
 
   const persistCurrentGameDraws = async (selectedGame: GameType = gameType) => {
@@ -129,10 +134,10 @@ export default function App(): JSX.Element {
     })
   }
 
-  const fetchResults = async (refetchIncompleteDatesOnly: boolean, selectedGame: GameType = gameType) => {
+  const fetchResults = async (refetchIncompleteDatesOnly: boolean, selectedGame: GameType = gameType, startFromDate?: string | Date) => {
     return selectedGame === 'eurojackpot' 
-      ? await fetchEuroJackpotResults(refetchIncompleteDatesOnly)
-      : await fetchLottoResults(refetchIncompleteDatesOnly)
+      ? await fetchEuroJackpotResults(refetchIncompleteDatesOnly, startFromDate)
+      : await fetchLottoResults(refetchIncompleteDatesOnly, startFromDate)
   }
 
   const normalizeDrawsForGame = (rawDraws: Array<Draw & { jackpotAmount?: string | number }>, selectedGame: GameType): Draw[] => {
@@ -145,6 +150,20 @@ export default function App(): JSX.Element {
     }))
   }
 
+  const mergeAndDeduplicateDraws = (baseDraws: Draw[], incomingDraws: Draw[]): Draw[] => {
+    const combined = [...incomingDraws, ...baseDraws]
+    const uniqueDraws = combined.filter((draw, index, self) =>
+      index === self.findIndex(d => d.drawDate === draw.drawDate && d.numbers.join(',') === draw.numbers.join(',') && (d.euroNumbers?.join(',') || '') === (draw.euroNumbers?.join(',') || ''))
+    )
+
+    uniqueDraws.sort((a, b) => new Date(b.drawDate).getTime() - new Date(a.drawDate).getTime())
+    return uniqueDraws
+  }
+
+  const getMostRecentDrawDate = (draws: Draw[]): string | null => {
+    return draws.length > 0 ? draws[0].drawDate : null
+  }
+
   // Function to fetch data from API
   const fetchData = async (forceRefetch: boolean = false, selectedGame: GameType = gameType) => {
     setLoading(true)
@@ -153,11 +172,11 @@ export default function App(): JSX.Element {
     try {
       // First, load server-saved data (unless forcing refetch)
       if (!forceRefetch) {
-        const serverDraws = await getSavedServerDraws(selectedGame)
-        const normalizedServerDraws = normalizeDrawsForGame(serverDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
+        const serverState = await getSavedServerDraws(selectedGame)
+        const normalizedServerDraws = normalizeDrawsForGame(serverState.draws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
 
-        if (serverDraws.length > 0 && isLikelyValidDataset(normalizedServerDraws, selectedGame)) {
-          console.log(`Loaded ${serverDraws.length} ${selectedGame} draws from server JSON`)
+        if (serverState.draws.length > 0 && isLikelyValidDataset(normalizedServerDraws, selectedGame)) {
+          console.log(`Loaded ${serverState.draws.length} ${selectedGame} draws from server JSON`)
           if (activeGameRef.current === selectedGame) {
             setData(normalizedServerDraws)
             setDataSource('server-json')
@@ -169,7 +188,7 @@ export default function App(): JSX.Element {
         const cachedDraws = getAllCachedDraws(selectedGame)
         const normalizedCachedDraws = normalizeDrawsForGame(cachedDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
 
-        if (serverDraws.length === 0 && cachedDraws.length > 0 && isLikelyValidDataset(normalizedCachedDraws, selectedGame)) {
+        if (serverState.draws.length === 0 && cachedDraws.length > 0 && isLikelyValidDataset(normalizedCachedDraws, selectedGame)) {
           console.log(`Loaded ${cachedDraws.length} draws from cache`)
           if (activeGameRef.current === selectedGame) {
             setData(normalizedCachedDraws)
@@ -186,6 +205,32 @@ export default function App(): JSX.Element {
         if (incompleteDates.length > 0) {
           console.log(`Found ${incompleteDates.length} draws with missing numbers, refetching those dates in background...`)
           setTimeout(() => fetchIncompleteDraws(selectedGame), 100)
+        }
+
+        const incrementalStartDate = serverState.lastFetchedAt || getMostRecentDrawDate(normalizedServerDraws) || getMostRecentDrawDate(normalizedCachedDraws) || undefined
+        const hasServerBaseline = normalizedServerDraws.length > 0 || normalizedCachedDraws.length > 0
+
+        if (hasServerBaseline) {
+          const gameName = selectedGame === 'eurojackpot' ? 'EuroJackpot' : 'Lotto'
+          console.log(`Checking for updated ${gameName} data from ${incrementalStartDate ? new Date(incrementalStartDate).toISOString().split('T')[0] : '2017-01-03'} to current...`)
+          const apiDraws = await fetchResults(false, selectedGame, incrementalStartDate)
+          const incrementalDraws = normalizeDrawsForGame(apiDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
+          const mergedDraws = mergeAndDeduplicateDraws(normalizedServerDraws.length > 0 ? normalizedServerDraws : normalizedCachedDraws, incrementalDraws)
+
+          console.log(`Loaded ${incrementalDraws.length} incremental draws from API, ${mergedDraws.length} total after merge`)
+          if (activeGameRef.current !== selectedGame) {
+            return
+          }
+          setData(mergedDraws)
+          setDataSource(incrementalDraws.length > 0 ? 'api-live' : (serverState.draws.length > 0 ? 'server-json' : 'local-cache'))
+          setLastRefreshAt(new Date().toISOString())
+          if (incrementalDraws.length > 0) {
+            const saved = await persistCurrentGameDraws(selectedGame)
+            if (saved) {
+              setLastServerSaveAt(new Date().toISOString())
+            }
+          }
+          return
         }
       }
       

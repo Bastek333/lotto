@@ -194,7 +194,8 @@ export async function saveDrawsToBackend(uploadToServer: boolean = false): Promi
       body: JSON.stringify({
         gameType: 'lotto',
         draws: draws,
-        uploadToServer: uploadToServer
+        uploadToServer: uploadToServer,
+        timestamp: new Date().toISOString()
       })
     })
 
@@ -218,7 +219,7 @@ export async function saveDrawsToBackend(uploadToServer: boolean = false): Promi
  * Load saved draws from server-side JSON and hydrate local cache.
  * Used at app startup to render data quickly before API refresh.
  */
-export async function fetchSavedDrawsFromServer(): Promise<LottoDraw[]> {
+export async function fetchSavedDrawsFromServer(): Promise<{ draws: LottoDraw[]; lastFetchedAt: string | null }> {
   try {
     const response = await fetch(`${READ_DRAWS_ENDPOINT}?gameType=lotto`, {
       headers: {
@@ -227,20 +228,27 @@ export async function fetchSavedDrawsFromServer(): Promise<LottoDraw[]> {
     })
 
     if (!response.ok) {
-      return []
+      return { draws: [], lastFetchedAt: null }
     }
 
     const data = await response.json()
-    if (!Array.isArray(data)) {
-      return []
+    const draws = Array.isArray(data) ? data : Array.isArray(data?.draws) ? data.draws : []
+    const lastFetchedAt = typeof data?.meta?.lastFetchedAt === 'string'
+      ? data.meta.lastFetchedAt
+      : typeof data?.lastFetchedAt === 'string'
+        ? data.lastFetchedAt
+        : null
+
+    if (!Array.isArray(draws)) {
+      return { draws: [], lastFetchedAt }
     }
 
-    const draws = sortAndDeduplicate(data as LottoDraw[])
-    hydrateLocalCache(draws)
-    return draws
+    const normalizedDraws = sortAndDeduplicate(draws as LottoDraw[])
+    hydrateLocalCache(normalizedDraws)
+    return { draws: normalizedDraws, lastFetchedAt }
   } catch (error) {
     console.warn('Error loading saved Lotto draws from server:', error)
-    return []
+    return { draws: [], lastFetchedAt: null }
   }
 }
 
@@ -269,9 +277,9 @@ interface LottoApiDrawResult {
  * Lotto draws are held on Tuesday, Thursday and Saturday
  * Excludes current day if time is before 23:00 (results not yet available)
  */
-function generateAllDrawDates(): Date[] {
+function generateAllDrawDates(startFromDate?: string | Date): Date[] {
   const drawDates: Date[] = []
-  const startDate = new Date('2017-01-03') // First Tuesday of 2017
+  const startDate = startFromDate ? new Date(startFromDate) : new Date('2017-01-03') // First Tuesday of 2017
   const now = new Date()
   
   // Determine end date: exclude today if before 23:00
@@ -310,7 +318,7 @@ function generateAllDrawDates(): Date[] {
  * Implements localStorage caching to reduce API calls
  * @param refetchIncompleteDatesOnly - If true, only refetch dates with missing draw numbers
  */
-export async function fetchLottoResults(refetchIncompleteDatesOnly: boolean = false): Promise<LottoDraw[]> {
+export async function fetchLottoResults(refetchIncompleteDatesOnly: boolean = false, startFromDate?: string | Date): Promise<LottoDraw[]> {
   console.log('Fetching Lotto results from official Lotto.pl API...')
   
   // Get incomplete dates if selective refetch is requested
@@ -324,12 +332,14 @@ export async function fetchLottoResults(refetchIncompleteDatesOnly: boolean = fa
       console.log('No incomplete dates found in cache, skipping refetch')
       return getAllCachedDraws()
     }
+  } else if (startFromDate) {
+    console.log(`Strategy: Fetch only Lotto draws from ${new Date(startFromDate).toISOString().split('T')[0]} to current`)
   } else {
     console.log('Strategy: Fetch by specific draw dates (2017 to current) with localStorage caching')
   }
 
   try {
-    const allDrawDates = generateAllDrawDates()
+    const allDrawDates = generateAllDrawDates(startFromDate)
     const allDraws: LottoDraw[] = []
     let successCount = 0
     let errorCount = 0

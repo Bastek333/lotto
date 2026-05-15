@@ -103,8 +103,18 @@ try {
         }
     }
 
-    // Write new data
-    $jsonData = json_encode($draws, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    // Write new data with metadata so the app can fetch incrementally next time
+    $payload = [
+        'meta' => [
+            'gameType' => $gameType,
+            'lastFetchedAt' => $timestamp,
+            'drawsCount' => count($draws),
+            'source' => $source
+        ],
+        'draws' => $draws
+    ];
+
+    $jsonData = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     
     if (@file_put_contents($filepath, $jsonData)) {
         $response['success'] = true;

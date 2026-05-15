@@ -61,5 +61,26 @@ if (!is_array($decoded)) {
     exit;
 }
 
-echo $data;
+if (isset($decoded['draws']) && is_array($decoded['draws'])) {
+    $lastFetchedAt = $decoded['meta']['lastFetchedAt'] ?? date('c', filemtime($filepath));
+    echo json_encode([
+        'meta' => [
+            'gameType' => $gameType,
+            'lastFetchedAt' => $lastFetchedAt,
+            'source' => $decoded['meta']['source'] ?? 'server-json'
+        ],
+        'draws' => $decoded['draws']
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+$lastFetchedAt = date('c', filemtime($filepath));
+echo json_encode([
+    'meta' => [
+        'gameType' => $gameType,
+        'lastFetchedAt' => $lastFetchedAt,
+        'source' => 'legacy-array'
+    ],
+    'draws' => $decoded
+], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 ?>
