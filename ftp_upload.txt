@@ -1,0 +1,10 @@
+open ftp.hosting2228593.online.pro
+automatykabram@hosting2228593.online.pro
+Wadowicka12
+binary
+cd public_html/assets
+mput dist/assets/*
+cd ..
+put dist/index.html
+put dist/api-proxy.php
+bye

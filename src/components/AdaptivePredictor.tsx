@@ -34,7 +34,7 @@ import {
 type Draw = {
   drawDate: string
   numbers: number[]
-  euroNumbers: number[]
+  euroNumbers?: number[]
 }
 
 type PredictionMethod = {
@@ -61,6 +61,9 @@ interface Props {
 }
 
 export default function AdaptivePredictor({ data }: Props): JSX.Element {
+  const hasEuroNumbers = data.some(d => d.euroNumbers && d.euroNumbers.length > 0)
+  const maxMainNumber = hasEuroNumbers ? 50 : 49
+  const maxMainSelection = hasEuroNumbers ? 5 : 6
   const [isLearning, setIsLearning] = useState(false)
   const [learnedWeights, setLearnedWeights] = useState<{ [key: string]: number }>({})
   const [prediction, setPrediction] = useState<AdaptiveResult | null>(null)
@@ -70,7 +73,7 @@ export default function AdaptivePredictor({ data }: Props): JSX.Element {
   // NOVEL METHOD 0: ORDER PATTERN ANALYSIS (HIGHEST PRIORITY)
   // Analyzes patterns in the ORDER of drawn numbers, not just the numbers themselves
   const orderPatternPredictor = (draws: Draw[]): { numbers: number[], euroNumbers: number[] } => {
-    const analysis = analyzeOrderPatterns(draws, 30)
+    const analysis = analyzeOrderPatterns(draws, 30, maxMainNumber, maxMainSelection)
     
     // Get top numbers based on order pattern scores
     const topMainNumbers = analysis.mainNumberScores
@@ -86,10 +89,10 @@ export default function AdaptivePredictor({ data }: Props): JSX.Element {
     const preferredPositions = analysis.patternInsights.preferredPositions
     
     // Try to select numbers that fit well in their preferred positions
-    for (let position = 0; position < 5; position++) {
+    for (let position = 0; position < maxMainSelection; position++) {
       const candidatesForPosition = topMainNumbers
         .filter(score => !selectedNumbers.includes(score.number))
-        .filter(score => score.preferredPosition === position || selectedNumbers.length < 5)
+        .filter(score => score.preferredPosition === position || selectedNumbers.length < maxMainSelection)
         .sort((a, b) => b.totalOrderScore - a.totalOrderScore)
       
       if (candidatesForPosition.length > 0) {
@@ -98,7 +101,7 @@ export default function AdaptivePredictor({ data }: Props): JSX.Element {
     }
     
     // If we don't have 5 numbers yet, fill with highest scoring
-    while (selectedNumbers.length < 5) {
+    while (selectedNumbers.length < maxMainSelection) {
       const next = topMainNumbers.find(s => !selectedNumbers.includes(s.number))
       if (next) {
         selectedNumbers.push(next.number)
@@ -107,7 +110,7 @@ export default function AdaptivePredictor({ data }: Props): JSX.Element {
       }
     }
     
-    const numbers = selectedNumbers.slice(0, 5).sort((a, b) => a - b)
+    const numbers = selectedNumbers.slice(0, maxMainSelection).sort((a, b) => a - b)
     const euroNumbers = topEuroNumbers.slice(0, 2).map(s => s.number).sort((a, b) => a - b)
     
     return { numbers, euroNumbers }
@@ -119,7 +122,7 @@ export default function AdaptivePredictor({ data }: Props): JSX.Element {
     const harmonyScores = new Map<number, number>()
     const recentDraws = draws.slice(0, 20)
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       let harmony = 0
       
       // Calculate harmonic relationships with recently drawn numbers
@@ -203,7 +206,7 @@ export default function AdaptivePredictor({ data }: Props): JSX.Element {
     const primeRatio = recentPrimeCount / (recentPrimeCount + recentCompositeCount)
     const targetPrimes = Math.round(5 * primeRatio)
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       let score = 0
       const numIsPrime = isPrime(num)
       
@@ -261,7 +264,7 @@ export default function AdaptivePredictor({ data }: Props): JSX.Element {
     const fibScores = new Map<number, number>()
     const recent = draws.slice(0, 12)
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       let score = 0
       
       // Fibonacci sequence bonus
@@ -331,7 +334,7 @@ export default function AdaptivePredictor({ data }: Props): JSX.Element {
     // Find underrepresented roots (reverse psychology)
     const avgFreq = Array.from(rootFreq.values()).reduce((a, b) => a + b, 0) / 9
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       const root = getDigitalRoot(num)
       const freq = rootFreq.get(root) || 0
       
@@ -386,7 +389,7 @@ export default function AdaptivePredictor({ data }: Props): JSX.Element {
     const modScores = new Map<number, number>()
     const recent = draws.slice(0, 18)
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       let score = 0
       
       modBases.forEach(base => {
@@ -439,7 +442,7 @@ export default function AdaptivePredictor({ data }: Props): JSX.Element {
     const symScores = new Map<number, number>()
     const recent = draws.slice(0, 15)
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       let score = 0
       
       // Mirror number (50 - num + 1)
@@ -492,7 +495,7 @@ export default function AdaptivePredictor({ data }: Props): JSX.Element {
     const recent = draws.slice(0, 25)
     const entropyScores = new Map<number, number>()
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       let score = 0
       
       // Calculate entropy contribution
@@ -551,7 +554,7 @@ export default function AdaptivePredictor({ data }: Props): JSX.Element {
     
     const correlationScores = new Map<number, number>()
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       if (seedNumbers.includes(num)) continue
       
       let score = 0

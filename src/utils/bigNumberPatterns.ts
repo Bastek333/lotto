@@ -4,10 +4,10 @@
  */
 
 interface Draw {
-  drawSystemId: number;
+  drawSystemId?: number;
   drawDate: string;
   numbers: number[];
-  euroNumbers: number[];
+  euroNumbers?: number[];
 }
 
 interface BigNumberPattern {
@@ -57,11 +57,11 @@ function digitProduct(bigNumber: string): number {
  * Uses the EXACT draw order as it occurred
  */
 export function extractBigNumberPatterns(draws: Draw[]): BigNumberPattern[] {
-  return draws.map(draw => {
+  return draws.map((draw, index) => {
     // Use the exact order the numbers were drawn
     const bigNumber = drawToBigNumber(draw.numbers, false); // Original order
     const sortedBigNumber = drawToBigNumber(draw.numbers, true); // Sorted for reference
-    const euroBigNumber = drawToBigNumber(draw.euroNumbers, false); // Euro numbers in draw order
+    const euroBigNumber = draw.euroNumbers ? drawToBigNumber(draw.euroNumbers, false) : ''; // Euro numbers in draw order
     
     return {
       bigNumber,
@@ -69,8 +69,8 @@ export function extractBigNumberPatterns(draws: Draw[]): BigNumberPattern[] {
       euroBigNumber,
       digitSum: digitSum(bigNumber),
       digitProduct: digitProduct(bigNumber),
-      euroDigitSum: digitSum(euroBigNumber),
-      drawId: draw.drawSystemId,
+      euroDigitSum: euroBigNumber ? digitSum(euroBigNumber) : 0,
+      drawId: draw.drawSystemId || index,
       drawDate: draw.drawDate
     };
   });
@@ -198,6 +198,11 @@ export function predictFromBigNumberPatterns(draws: Draw[]): PatternPrediction[]
   const patterns = extractBigNumberPatterns(draws);
   const predictions: PatternPrediction[] = [];
   
+  // Detect game type
+  const hasEuroNumbers = draws.some(d => d.euroNumbers && d.euroNumbers.length > 0);
+  const maxMainNumber = hasEuroNumbers ? 50 : 49;
+  const mainCount = hasEuroNumbers ? 5 : 6;
+  
   // Analyze euro number patterns
   const euroSequences = findRepeatingEuroSequences(patterns);
   
@@ -208,7 +213,7 @@ export function predictFromBigNumberPatterns(draws: Draw[]): PatternPrediction[]
     .slice(0, 10);
   
   if (topSequences.length > 0) {
-    const prediction = generateFromSequences(topSequences, patterns, euroSequences);
+    const prediction = generateFromSequences(topSequences, patterns, euroSequences, maxMainNumber, mainCount, hasEuroNumbers);
     if (prediction) {
       predictions.push(prediction);
     }
@@ -216,28 +221,28 @@ export function predictFromBigNumberPatterns(draws: Draw[]): PatternPrediction[]
   
   // Method 2: Positional digit frequency
   const positionalFreq = analyzePositionalDigits(patterns);
-  const positionPrediction = generateFromPositionalFrequency(positionalFreq, euroSequences, patterns);
+  const positionPrediction = generateFromPositionalFrequency(positionalFreq, euroSequences, patterns, maxMainNumber, mainCount, hasEuroNumbers);
   if (positionPrediction) {
     predictions.push(positionPrediction);
   }
   
   // Method 3: Digit sum pattern continuation
   const digitSumDiffs = analyzeDigitSumPatterns(patterns);
-  const sumPrediction = generateFromDigitSumPattern(patterns, digitSumDiffs, euroSequences);
+  const sumPrediction = generateFromDigitSumPattern(patterns, digitSumDiffs, euroSequences, maxMainNumber, mainCount, hasEuroNumbers);
   if (sumPrediction) {
     predictions.push(sumPrediction);
   }
   
   // Method 4: Digit transition patterns
   const transitions = analyzeDigitTransitions(patterns);
-  const transitionPrediction = generateFromTransitions(transitions, patterns, euroSequences);
+  const transitionPrediction = generateFromTransitions(transitions, patterns, euroSequences, maxMainNumber, mainCount, hasEuroNumbers);
   if (transitionPrediction) {
     predictions.push(transitionPrediction);
   }
   
   // Method 5: Modulo pattern analysis
   const moduloPatterns = analyzeModuloPatterns(patterns, 9);
-  const moduloPrediction = generateFromModuloPattern(moduloPatterns, patterns, euroSequences);
+  const moduloPrediction = generateFromModuloPattern(moduloPatterns, patterns, euroSequences, maxMainNumber, mainCount, hasEuroNumbers);
   if (moduloPrediction) {
     predictions.push(moduloPrediction);
   }
@@ -248,32 +253,33 @@ export function predictFromBigNumberPatterns(draws: Draw[]): PatternPrediction[]
 /**
  * Generate numbers from most frequent sequences
  */
-function generateFromSequences(sequences: [string, number][], patterns: BigNumberPattern[], euroSequences: Map<string, number>): PatternPrediction | null {
+function generateFromSequences(sequences: [string, number][], patterns: BigNumberPattern[], euroSequences: Map<string, number>, maxMainNumber: number, mainCount: number, hasEuroNumbers: boolean): PatternPrediction | null {
   try {
     // Build a big number string from top sequences
     let bigNumberStr = '';
     const usedSequences: string[] = [];
+    const targetLength = mainCount * 2; // 2 digits per number
     
     for (const [seq, freq] of sequences) {
-      if (bigNumberStr.length < 10) {
+      if (bigNumberStr.length < targetLength) {
         bigNumberStr += seq;
         usedSequences.push(seq);
       }
     }
     
-    // Ensure we have exactly 10 digits
-    if (bigNumberStr.length < 10) {
+    // Ensure we have exactly the right number of digits
+    if (bigNumberStr.length < targetLength) {
       const lastPattern = patterns[0].sortedBigNumber;
-      bigNumberStr = (bigNumberStr + lastPattern).substring(0, 10);
+      bigNumberStr = (bigNumberStr + lastPattern).substring(0, targetLength);
     } else {
-      bigNumberStr = bigNumberStr.substring(0, 10);
+      bigNumberStr = bigNumberStr.substring(0, targetLength);
     }
     
-    // Convert back to 5 numbers
+    // Convert back to numbers
     const numbers: number[] = [];
-    for (let i = 0; i < 10; i += 2) {
+    for (let i = 0; i < targetLength; i += 2) {
       const num = parseInt(bigNumberStr.substring(i, i + 2));
-      if (num >= 1 && num <= 50 && !numbers.includes(num)) {
+      if (num >= 1 && num <= maxMainNumber && !numbers.includes(num)) {
         numbers.push(num);
       }
     }
@@ -281,9 +287,9 @@ function generateFromSequences(sequences: [string, number][], patterns: BigNumbe
     // Fill missing numbers with most frequent from recent draws
     const recentNumbers = new Map<number, number>();
     patterns.slice(0, 10).forEach(p => {
-      const nums = bigNumberToNumbers(p.bigNumber); // Use exact draw order
+      const nums = bigNumberToNumbers(p.bigNumber, maxMainNumber); // Use exact draw order
       nums.forEach(n => {
-        if (n >= 1 && n <= 50) {
+        if (n >= 1 && n <= maxMainNumber) {
           recentNumbers.set(n, (recentNumbers.get(n) || 0) + 1);
         }
       });
@@ -293,25 +299,25 @@ function generateFromSequences(sequences: [string, number][], patterns: BigNumbe
       .sort((a, b) => b[1] - a[1]);
     
     for (const [num] of sortedRecent) {
-      if (numbers.length >= 5) break;
-      if (!numbers.includes(num) && num >= 1 && num <= 50) {
+      if (numbers.length >= mainCount) break;
+      if (!numbers.includes(num) && num >= 1 && num <= maxMainNumber) {
         numbers.push(num);
       }
     }
     
     // Add random valid numbers if still not enough
-    while (numbers.length < 5) {
-      const random = Math.floor(Math.random() * 50) + 1;
+    while (numbers.length < mainCount) {
+      const random = Math.floor(Math.random() * maxMainNumber) + 1;
       if (!numbers.includes(random)) {
         numbers.push(random);
       }
     }
     
     // Generate euro numbers from most frequent euro sequences
-    const euroNumbers = generateEuroNumbers(euroSequences, patterns);
+    const euroNumbers = hasEuroNumbers ? generateEuroNumbers(euroSequences, patterns) : [];
     
     return {
-      predictedNumbers: numbers.slice(0, 5).sort((a, b) => a - b),
+      predictedNumbers: numbers.slice(0, mainCount).sort((a, b) => a - b),
       predictedEuroNumbers: euroNumbers,
       confidence: Math.min(95, 60 + (usedSequences.length * 5)),
       method: 'Frequent Sequence Pattern',
@@ -370,11 +376,12 @@ function generateEuroNumbers(euroSequences: Map<string, number>, patterns: BigNu
 /**
  * Generate numbers from positional digit frequency
  */
-function generateFromPositionalFrequency(positionalFreq: Map<number, Map<string, number>>, euroSequences: Map<string, number>, patterns: BigNumberPattern[]): PatternPrediction | null {
+function generateFromPositionalFrequency(positionalFreq: Map<number, Map<string, number>>, euroSequences: Map<string, number>, patterns: BigNumberPattern[], maxMainNumber: number, mainCount: number, hasEuroNumbers: boolean): PatternPrediction | null {
   try {
     let bigNumberStr = '';
+    const targetLength = mainCount * 2;
     
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < targetLength; i++) {
       const posMap = positionalFreq.get(i);
       if (posMap) {
         const mostFrequent = Array.from(posMap.entries())
@@ -385,22 +392,22 @@ function generateFromPositionalFrequency(positionalFreq: Map<number, Map<string,
       }
     }
     
-    const numbers = bigNumberToNumbers(bigNumberStr);
-    const validNumbers = numbers.filter(n => n >= 1 && n <= 50);
+    const numbers = bigNumberToNumbers(bigNumberStr, maxMainNumber);
+    const validNumbers = numbers.filter(n => n >= 1 && n <= maxMainNumber);
     
     // Fill with complementary numbers if needed
     const unique = [...new Set(validNumbers)];
-    while (unique.length < 5) {
-      const random = Math.floor(Math.random() * 50) + 1;
+    while (unique.length < mainCount) {
+      const random = Math.floor(Math.random() * maxMainNumber) + 1;
       if (!unique.includes(random)) {
         unique.push(random);
       }
     }
     
-    const euroNumbers = generateEuroNumbers(euroSequences, patterns);
+    const euroNumbers = hasEuroNumbers ? generateEuroNumbers(euroSequences, patterns) : [];
     
     return {
-      predictedNumbers: unique.slice(0, 5).sort((a, b) => a - b),
+      predictedNumbers: unique.slice(0, mainCount).sort((a, b) => a - b),
       predictedEuroNumbers: euroNumbers,
       confidence: 75,
       method: 'Positional Digit Frequency',
@@ -414,7 +421,7 @@ function generateFromPositionalFrequency(positionalFreq: Map<number, Map<string,
 /**
  * Generate numbers from digit sum pattern
  */
-function generateFromDigitSumPattern(patterns: BigNumberPattern[], differences: number[], euroSequences: Map<string, number>): PatternPrediction | null {
+function generateFromDigitSumPattern(patterns: BigNumberPattern[], differences: number[], euroSequences: Map<string, number>, maxMainNumber: number, mainCount: number, hasEuroNumbers: boolean): PatternPrediction | null {
   try {
     const lastSum = patterns[0].digitSum;
     const avgDiff = differences.reduce((a, b) => a + b, 0) / differences.length;
@@ -422,8 +429,8 @@ function generateFromDigitSumPattern(patterns: BigNumberPattern[], differences: 
     
     // Generate numbers that sum to target
     const targetSum = Math.max(15, Math.min(45, predictedSum)); // Reasonable range
-    const numbers = generateNumbersWithTargetSum(targetSum);
-    const euroNumbers = generateEuroNumbers(euroSequences, patterns);
+    const numbers = generateNumbersWithTargetSum(targetSum, maxMainNumber, mainCount);
+    const euroNumbers = hasEuroNumbers ? generateEuroNumbers(euroSequences, patterns) : [];
     
     return {
       predictedNumbers: numbers.sort((a, b) => a - b),
@@ -440,7 +447,7 @@ function generateFromDigitSumPattern(patterns: BigNumberPattern[], differences: 
 /**
  * Generate numbers from transition patterns
  */
-function generateFromTransitions(transitions: Map<string, number>, patterns: BigNumberPattern[], euroSequences: Map<string, number>): PatternPrediction | null {
+function generateFromTransitions(transitions: Map<string, number>, patterns: BigNumberPattern[], euroSequences: Map<string, number>, maxMainNumber: number, mainCount: number, hasEuroNumbers: boolean): PatternPrediction | null {
   try {
     const topTransitions = Array.from(transitions.entries())
       .sort((a, b) => b[1] - a[1])
@@ -449,9 +456,10 @@ function generateFromTransitions(transitions: Map<string, number>, patterns: Big
     let bigNumberStr = '';
     const lastBigNum = patterns[0].bigNumber; // Use exact draw order
     bigNumberStr = lastBigNum[0]; // Start with last draw's first digit
+    const targetLength = mainCount * 2;
     
     // Build using most common transitions
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < targetLength - 1; i++) {
       const currentDigit = bigNumberStr[bigNumberStr.length - 1];
       const possibleTransitions = topTransitions.filter(([t]) => t.startsWith(currentDigit + '->'));
       
@@ -463,20 +471,20 @@ function generateFromTransitions(transitions: Map<string, number>, patterns: Big
       }
     }
     
-    const numbers = bigNumberToNumbers(bigNumberStr);
-    const validNumbers = [...new Set(numbers.filter(n => n >= 1 && n <= 50))];
+    const numbers = bigNumberToNumbers(bigNumberStr, maxMainNumber);
+    const validNumbers = [...new Set(numbers.filter(n => n >= 1 && n <= maxMainNumber))];
     
-    while (validNumbers.length < 5) {
-      const random = Math.floor(Math.random() * 50) + 1;
+    while (validNumbers.length < mainCount) {
+      const random = Math.floor(Math.random() * maxMainNumber) + 1;
       if (!validNumbers.includes(random)) {
         validNumbers.push(random);
       }
     }
     
-    const euroNumbers = generateEuroNumbers(euroSequences, patterns);
+    const euroNumbers = hasEuroNumbers ? generateEuroNumbers(euroSequences, patterns) : [];
     
     return {
-      predictedNumbers: validNumbers.slice(0, 5).sort((a, b) => a - b),
+      predictedNumbers: validNumbers.slice(0, mainCount).sort((a, b) => a - b),
       predictedEuroNumbers: euroNumbers,
       confidence: 72,
       method: 'Digit Transition Pattern',
@@ -490,7 +498,7 @@ function generateFromTransitions(transitions: Map<string, number>, patterns: Big
 /**
  * Generate numbers from modulo pattern
  */
-function generateFromModuloPattern(moduloPatterns: Map<number, number>, patterns: BigNumberPattern[], euroSequences: Map<string, number>): PatternPrediction | null {
+function generateFromModuloPattern(moduloPatterns: Map<number, number>, patterns: BigNumberPattern[], euroSequences: Map<string, number>, maxMainNumber: number, mainCount: number, hasEuroNumbers: boolean): PatternPrediction | null {
   try {
     const mostCommonMod = Array.from(moduloPatterns.entries())
       .sort((a, b) => b[1] - a[1])[0][0];
@@ -503,20 +511,20 @@ function generateFromModuloPattern(moduloPatterns: Map<number, number>, patterns
     
     if (matchingPatterns.length > 0) {
       const recentMatch = matchingPatterns[0];
-      const numbers = bigNumberToNumbers(recentMatch.bigNumber); // Use exact draw order
-      const validNumbers = numbers.filter(n => n >= 1 && n <= 50);
+      const numbers = bigNumberToNumbers(recentMatch.bigNumber, maxMainNumber); // Use exact draw order
+      const validNumbers = numbers.filter(n => n >= 1 && n <= maxMainNumber);
       
       // Slight variation
       const varied = validNumbers.map(n => {
         const variation = Math.random() < 0.5 ? -2 : 2;
         const newNum = n + variation;
-        return Math.max(1, Math.min(50, newNum));
+        return Math.max(1, Math.min(maxMainNumber, newNum));
       });
       
-      const euroNumbers = generateEuroNumbers(euroSequences, patterns);
+      const euroNumbers = hasEuroNumbers ? generateEuroNumbers(euroSequences, patterns) : [];
       
       return {
-        predictedNumbers: [...new Set(varied)].slice(0, 5).sort((a, b) => a - b),
+        predictedNumbers: [...new Set(varied)].slice(0, mainCount).sort((a, b) => a - b),
         predictedEuroNumbers: euroNumbers,
         confidence: 68,
         method: 'Modulo 9 Pattern',
@@ -533,11 +541,11 @@ function generateFromModuloPattern(moduloPatterns: Map<number, number>, patterns
 /**
  * Convert big number string to array of numbers
  */
-function bigNumberToNumbers(bigNumberStr: string): number[] {
+function bigNumberToNumbers(bigNumberStr: string, maxNumber: number = 50): number[] {
   const numbers: number[] = [];
   for (let i = 0; i < bigNumberStr.length - 1; i += 2) {
     const num = parseInt(bigNumberStr.substring(i, i + 2));
-    if (num >= 1 && num <= 50) {
+    if (num >= 1 && num <= maxNumber) {
       numbers.push(num);
     }
   }
@@ -547,30 +555,30 @@ function bigNumberToNumbers(bigNumberStr: string): number[] {
 /**
  * Generate numbers that sum to a target digit sum
  */
-function generateNumbersWithTargetSum(targetSum: number): number[] {
+function generateNumbersWithTargetSum(targetSum: number, maxNumber: number = 50, count: number = 5): number[] {
   const numbers: number[] = [];
   let remainingSum = targetSum;
   
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < count; i++) {
     const minVal = 1;
-    const maxVal = Math.min(50, remainingSum - (4 - i));
+    const maxVal = Math.min(maxNumber, remainingSum - (count - 1 - i));
     const num = Math.floor(Math.random() * (maxVal - minVal + 1)) + minVal;
     
-    if (!numbers.includes(num) && num >= 1 && num <= 50) {
+    if (!numbers.includes(num) && num >= 1 && num <= maxNumber) {
       numbers.push(num);
       remainingSum -= num.toString().split('').reduce((a, b) => a + parseInt(b), 0);
     }
   }
   
-  // Adjust to ensure 5 unique numbers
-  while (numbers.length < 5) {
-    const random = Math.floor(Math.random() * 50) + 1;
+  // Adjust to ensure unique numbers
+  while (numbers.length < count) {
+    const random = Math.floor(Math.random() * maxNumber) + 1;
     if (!numbers.includes(random)) {
       numbers.push(random);
     }
   }
   
-  return numbers.slice(0, 5);
+  return numbers.slice(0, count);
 }
 
 /**

@@ -3,7 +3,7 @@ import React from 'react'
 type Draw = {
   drawDate: string
   numbers: number[]
-  euroNumbers: number[]
+  euroNumbers?: number[]
   jackpot?: string
   jackpotAmount?: string
 }
@@ -22,6 +22,7 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
   // Get latest draw and previous draw
   const latestDraw = draws[0]
   const previousDraw = draws.length > 1 ? draws[1] : null
+  const hasEuroNumbers = draws.some(d => d.euroNumbers && d.euroNumbers.length > 0)
   
   // For each number in the latest draw, find all numbers that appeared in following draws historically
   const mainNumbersAnalysis = React.useMemo(() => {
@@ -78,6 +79,8 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
       totalFollowingDraws: number
     }[] = []
     
+    if (!hasEuroNumbers || !latestDraw.euroNumbers) return analysisResults
+    
     latestDraw.euroNumbers.forEach(currentNum => {
       const followingNumbersMap: { [key: number]: number } = {}
       let totalFollowingDraws = 0
@@ -87,14 +90,16 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
         const previousDraw = draws[i]
         
         // Check if currentNum was in this historical draw
-        if (previousDraw.euroNumbers.includes(currentNum)) {
+        if (previousDraw.euroNumbers && previousDraw.euroNumbers.includes(currentNum)) {
           // Count all numbers from the following draw
           const followingDraw = draws[i - 1]
           totalFollowingDraws++
           
-          followingDraw.euroNumbers.forEach(num => {
-            followingNumbersMap[num] = (followingNumbersMap[num] || 0) + 1
-          })
+          if (followingDraw.euroNumbers) {
+            followingDraw.euroNumbers.forEach(num => {
+              followingNumbersMap[num] = (followingNumbersMap[num] || 0) + 1
+            })
+          }
         }
       }
       
@@ -115,7 +120,7 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
     })
     
     return analysisResults
-  }, [draws, latestDraw])
+  }, [draws, latestDraw, hasEuroNumbers])
   
   // Aggregate all following numbers from all numbers in latest draw
   const aggregatedMainNumbers = React.useMemo(() => {
@@ -218,22 +223,25 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
       totalFollowingDraws: number
     }[] = []
     
-    previousDraw.euroNumbers.forEach(currentNum => {
-      const followingNumbersMap: { [key: number]: number } = {}
-      let totalFollowingDraws = 0
-      
-      for (let i = 2; i < draws.length; i++) {
-        const historicalDraw = draws[i]
+    if (hasEuroNumbers && previousDraw.euroNumbers) {
+      previousDraw.euroNumbers.forEach(currentNum => {
+        const followingNumbersMap: { [key: number]: number } = {}
+        let totalFollowingDraws = 0
         
-        if (historicalDraw.euroNumbers.includes(currentNum)) {
-          const followingDraw = draws[i - 1]
-          totalFollowingDraws++
+        for (let i = 2; i < draws.length; i++) {
+          const historicalDraw = draws[i]
           
-          followingDraw.euroNumbers.forEach(num => {
-            followingNumbersMap[num] = (followingNumbersMap[num] || 0) + 1
-          })
+          if (historicalDraw.euroNumbers && historicalDraw.euroNumbers.includes(currentNum)) {
+            const followingDraw = draws[i - 1]
+            totalFollowingDraws++
+            
+            if (followingDraw.euroNumbers) {
+              followingDraw.euroNumbers.forEach(num => {
+                followingNumbersMap[num] = (followingNumbersMap[num] || 0) + 1
+              })
+            }
+          }
         }
-      }
       
       const followingNumbers = Object.entries(followingNumbersMap)
         .map(([num, count]) => ({
@@ -249,6 +257,7 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
         totalFollowingDraws
       })
     })
+    }
 
     // Aggregate predictions from previous draw
     const prevAggregatedMain: { [key: number]: number } = {}
@@ -290,7 +299,9 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
 
     // Calculate matches
     const mainMatches = prevPredictedMain.filter(num => latestDraw.numbers.includes(num))
-    const euroMatches = prevPredictedEuro.filter(num => latestDraw.euroNumbers.includes(num))
+    const euroMatches = hasEuroNumbers && latestDraw.euroNumbers 
+      ? prevPredictedEuro.filter(num => latestDraw.euroNumbers!.includes(num))
+      : []
 
     return {
       previousDraw,
@@ -301,7 +312,7 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
       mainMatchCount: mainMatches.length,
       euroMatchCount: euroMatches.length
     }
-  }, [draws, previousDraw, latestDraw])
+  }, [draws, previousDraw, latestDraw, hasEuroNumbers])
 
 
   return (
@@ -329,14 +340,16 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
                 ))}
               </div>
             </div>
-            <div className="euro-numbers-group">
-              <span className="label">Euro Numbers:</span>
-              <div className="number-balls">
-                {latestDraw.euroNumbers.map((num, idx) => (
-                  <span key={idx} className="number-ball euro">{num}</span>
-                ))}
+            {hasEuroNumbers && latestDraw.euroNumbers && (
+              <div className="euro-numbers-group">
+                <span className="label">Euro Numbers:</span>
+                <div className="number-balls">
+                  {latestDraw.euroNumbers.map((num, idx) => (
+                    <span key={idx} className="number-ball euro">{num}</span>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -357,14 +370,16 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
                 ))}
               </div>
             </div>
-            <div className="euro-numbers-group">
-              <span className="label">Predicted Euro Numbers:</span>
-              <div className="number-balls">
-                {predictedEuroNumbers.map((num, idx) => (
-                  <span key={idx} className="number-ball euro predicted">{num}</span>
-                ))}
+            {hasEuroNumbers && (
+              <div className="euro-numbers-group">
+                <span className="label">Predicted Euro Numbers:</span>
+                <div className="number-balls">
+                  {predictedEuroNumbers.map((num, idx) => (
+                    <span key={idx} className="number-ball euro predicted">{num}</span>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -392,14 +407,16 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
                       ))}
                     </div>
                   </div>
-                  <div className="euro-numbers-group">
-                    <span className="label">Euro Numbers:</span>
-                    <div className="number-balls">
-                      {previousDrawPrediction.previousDraw.euroNumbers.map((num, idx) => (
-                        <span key={idx} className="number-ball euro">{num}</span>
-                      ))}
+                  {hasEuroNumbers && previousDrawPrediction.previousDraw.euroNumbers && (
+                    <div className="euro-numbers-group">
+                      <span className="label">Euro Numbers:</span>
+                      <div className="number-balls">
+                        {previousDrawPrediction.previousDraw.euroNumbers.map((num, idx) => (
+                          <span key={idx} className="number-ball euro">{num}</span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -467,23 +484,25 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
                       })}
                     </div>
                   </div>
-                  <div className="euro-numbers-group">
-                    <span className="label">Euro Numbers:</span>
-                    <div className="number-balls">
-                      {latestDraw.euroNumbers.map((num, idx) => {
-                        const wasPredicted = previousDrawPrediction.euroMatches.includes(num)
-                        return (
-                          <span 
-                            key={idx} 
-                            className={`number-ball euro ${wasPredicted ? 'match' : ''}`}
-                            title={wasPredicted ? 'We predicted this!' : ''}
-                          >
-                            {num}
-                          </span>
-                        )
-                      })}
+                  {hasEuroNumbers && latestDraw.euroNumbers && (
+                    <div className="euro-numbers-group">
+                      <span className="label">Euro Numbers:</span>
+                      <div className="number-balls">
+                        {latestDraw.euroNumbers.map((num, idx) => {
+                          const wasPredicted = previousDrawPrediction.euroMatches.includes(num)
+                          return (
+                            <span 
+                              key={idx} 
+                              className={`number-ball euro ${wasPredicted ? 'match' : ''}`}
+                              title={wasPredicted ? 'We predicted this!' : ''}
+                            >
+                              {num}
+                            </span>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -558,24 +577,25 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
         </div>
       </div>
       
-      <div className="analysis-section">
-        <h3>Aggregated Euro Numbers Frequency</h3>
-        <p className="analysis-description">
-          All euro numbers that appeared in draws following any occurrence of the euro numbers in the latest draw, 
-          ranked by total frequency.
-        </p>
-        <div className="frequency-table-wrapper">
-          <table className="frequency-table">
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Number</th>
-                <th>Total Occurrences</th>
-                <th>Frequency %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {aggregatedEuroNumbers.slice(0, 12).map((freq, idx) => (
+      {hasEuroNumbers && (
+        <div className="analysis-section">
+          <h3>Aggregated Euro Numbers Frequency</h3>
+          <p className="analysis-description">
+            All euro numbers that appeared in draws following any occurrence of the euro numbers in the latest draw, 
+            ranked by total frequency.
+          </p>
+          <div className="frequency-table-wrapper">
+            <table className="frequency-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Number</th>
+                  <th>Total Occurrences</th>
+                  <th>Frequency %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aggregatedEuroNumbers.slice(0, 12).map((freq, idx) => (
                 <tr key={freq.number} className={idx < 2 ? 'predicted-row' : ''}>
                   <td>{idx + 1}</td>
                   <td>
@@ -588,7 +608,8 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
             </tbody>
           </table>
         </div>
-      </div>
+        </div>
+      )}
       
       {/* Detailed Analysis by Number */}
       <div className="analysis-section">
@@ -633,14 +654,15 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
         </div>
       </div>
       
-      <div className="analysis-section">
-        <h3>Detailed Euro Numbers Analysis</h3>
-        <p className="analysis-description">
-          For each euro number in the latest draw, showing the top numbers that most commonly appeared 
-          in the following draws historically.
-        </p>
-        <div className="pattern-tables">
-          {euroNumbersAnalysis.map((analysis) => (
+      {hasEuroNumbers && euroNumbersAnalysis.length > 0 && (
+        <div className="analysis-section">
+          <h3>Detailed Euro Numbers Analysis</h3>
+          <p className="analysis-description">
+            For each euro number in the latest draw, showing the top numbers that most commonly appeared 
+            in the following draws historically.
+          </p>
+          <div className="pattern-tables">
+            {euroNumbersAnalysis.map((analysis) => (
             <div key={analysis.currentNumber} className="pattern-table-card">
               <div className="pattern-header">
                 <span className="number-ball-small euro">{analysis.currentNumber}</span>
@@ -673,7 +695,8 @@ export default function FollowingDrawsAnalysis({ draws }: Props): JSX.Element {
             </div>
           ))}
         </div>
-      </div>
+        </div>
+      )}
       
       <div className="disclaimer">
         <strong>Disclaimer:</strong> These predictions are based on historical pattern analysis. 

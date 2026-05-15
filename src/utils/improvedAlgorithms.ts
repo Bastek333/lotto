@@ -8,7 +8,7 @@
 type Draw = {
   drawDate: string
   numbers: number[]
-  euroNumbers: number[]
+  euroNumbers?: number[]
 }
 
 /**

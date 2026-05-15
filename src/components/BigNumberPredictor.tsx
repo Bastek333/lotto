@@ -1,46 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import {
+  generateEnhancedBigNumberPrediction,
+  generateEnhancedAnalysisReport
+} from '../utils/enhancedBigNumberPatterns';
+import {
   predictFromBigNumberPatterns,
-  getBigNumberAnalysisReport,
-  drawToBigNumber,
-  extractBigNumberPatterns
+  getBigNumberAnalysisReport
 } from '../utils/bigNumberPatterns';
-import drawsData from '../data/eurojackpot_draws.json';
 
 interface Draw {
-  drawSystemId: number;
+  drawSystemId?: number;
   drawDate: string;
   numbers: number[];
-  euroNumbers: number[];
+  euroNumbers?: number[];
 }
 
-export const BigNumberPredictor: React.FC = () => {
+interface BigNumberPredictorProps {
+  draws: Draw[];
+}
+
+export const BigNumberPredictor: React.FC<BigNumberPredictorProps> = ({ draws }) => {
   const [predictions, setPredictions] = useState<any[]>([]);
   const [analysis, setAnalysis] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const draws = drawsData as Draw[];
-
   const runAnalysis = () => {
     setLoading(true);
     
     setTimeout(() => {
-      // Get predictions
-      const preds = predictFromBigNumberPatterns(draws);
-      setPredictions(preds);
+      // Use enhanced algorithm with digit analysis and recency weighting
+      const enhancedPreds = generateEnhancedBigNumberPrediction(draws);
+      setPredictions(enhancedPreds);
       
-      // Get detailed analysis
-      const report = getBigNumberAnalysisReport(draws);
-      setAnalysis(report);
+      // Get detailed enhanced analysis
+      const enhancedReport = generateEnhancedAnalysisReport(draws);
+      setAnalysis(enhancedReport);
       
       setLoading(false);
     }, 100);
   };
 
   useEffect(() => {
-    runAnalysis();
-  }, []);
+    if (draws && draws.length > 0) {
+      runAnalysis();
+    }
+  }, [draws]);
 
   const formatBigNumber = (bigNum: string) => {
     return bigNum.match(/.{1,2}/g)?.join('-') || bigNum;
@@ -60,13 +65,19 @@ export const BigNumberPredictor: React.FC = () => {
         border: '2px solid #3498db'
       }}>
         <p style={{ margin: 0, fontWeight: 'bold', color: '#2c3e50' }}>
-          💡 Concept: This algorithm treats each draw as a single "big number" using the EXACT order numbers were drawn.
+          💡 Enhanced Algorithm: Single Digit + Number Pattern Analysis with Historical Accuracy
         </p>
         <p style={{ margin: '10px 0 0 0', fontSize: '14px', color: '#555' }}>
-          For example, if the draw order was [12, 22, 28, 30, 31], it becomes "1222283031". This preserves the 
-          sequential pattern of how numbers actually appeared, not just their sorted values. We analyze digit sequences,
-          transitions, positional frequencies, and mathematical properties to find patterns in the draw sequence.
-        </p>        <p style={{ margin: '10px 0 0 0', fontSize: '12px', color: '#e74c3c', fontWeight: 'bold' }}>
+          This improved algorithm analyzes:
+        </p>
+        <ul style={{ margin: '8px 0 0 20px', fontSize: '13px', color: '#555' }}>
+          <li><strong>Single Digit Patterns:</strong> Frequency of last digits (0-9) across recent draws with heavy recency weighting</li>
+          <li><strong>Digit Pair Transitions:</strong> How consecutive digits appear in the big number sequence</li>
+          <li><strong>Historical Accuracy:</strong> Tracks which prediction methods worked best historically</li>
+          <li><strong>Recent Draw Focus:</strong> Last 30 draws weighted 85x higher than older draws</li>
+          <li><strong>Hybrid Approach:</strong> Combines single digit frequency with whole number analysis</li>
+        </ul>
+        <p style={{ margin: '10px 0 0 0', fontSize: '12px', color: '#e74c3c', fontWeight: 'bold' }}>
           ⚠️ Note: The JSON data file may contain pre-sorted numbers. To get the actual draw order, fetch fresh data
           from the API using the "🔄 Refetch" button in the Results tab.
         </p>      </div>
@@ -77,9 +88,124 @@ export const BigNumberPredictor: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Predictions */}
+          {/* Best Prediction for Next Draw - Highlighted */}
+          {predictions.length > 0 && (
+            <div style={{ 
+              marginBottom: '30px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              padding: '25px',
+              borderRadius: '12px',
+              boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+              border: '3px solid #ffd700'
+            }}>
+              <h3 style={{ 
+                color: 'white', 
+                margin: '0 0 20px 0',
+                fontSize: '24px',
+                textAlign: 'center',
+                textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
+              }}>
+                🌟 BEST PREDICTION FOR NEXT DRAW 🌟
+              </h3>
+              <div style={{
+                background: 'white',
+                padding: '20px',
+                borderRadius: '10px',
+                boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+              }}>
+                <div style={{ 
+                  fontWeight: 'bold', 
+                  color: '#2c3e50', 
+                  marginBottom: '15px',
+                  fontSize: '18px',
+                  textAlign: 'center'
+                }}>
+                  {predictions[0].method}
+                </div>
+                <div style={{ marginBottom: '15px' }}>
+                  <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>
+                    Main Numbers:
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    {predictions[0].predictedNumbers.map((num: number, i: number) => (
+                      <div
+                        key={i}
+                        style={{
+                          background: 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)',
+                          color: 'white',
+                          width: '50px',
+                          height: '50px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 'bold',
+                          fontSize: '20px',
+                          boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                          border: '2px solid #fff'
+                        }}
+                      >
+                        {num}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {predictions[0].predictedEuroNumbers && predictions[0].predictedEuroNumbers.length > 0 && (
+                  <div style={{ marginBottom: '15px' }}>
+                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>
+                      Euro Numbers:
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                      {predictions[0].predictedEuroNumbers.map((num: number, i: number) => (
+                        <div
+                          key={i}
+                          style={{
+                            background: 'linear-gradient(135deg, #f39c12 0%, #e67e22 100%)',
+                            color: 'white',
+                            width: '45px',
+                            height: '45px',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '18px',
+                            boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                            border: '2px solid #fff'
+                          }}
+                        >
+                          {num}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div style={{ 
+                  textAlign: 'center',
+                  padding: '15px',
+                  background: '#e8f5e9',
+                  borderRadius: '8px',
+                  marginBottom: '10px'
+                }}>
+                  <div style={{ fontSize: '14px', color: '#2e7d32', fontWeight: 'bold', marginBottom: '5px' }}>
+                    Confidence: {predictions[0].confidence}%
+                  </div>
+                  <div style={{ 
+                    fontSize: '13px', 
+                    color: '#555', 
+                    fontStyle: 'italic',
+                    marginTop: '8px'
+                  }}>
+                    {predictions[0].details}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* All Predictions */}
           <div style={{ marginBottom: '30px' }}>
-            <h3 style={{ color: '#2c3e50' }}>🎯 Pattern-Based Predictions</h3>
+            <h3 style={{ color: '#2c3e50' }}>🎯 All Pattern-Based Predictions</h3>
             {predictions.length > 0 ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px' }}>
                 {predictions.map((pred, index) => (
@@ -89,10 +215,27 @@ export const BigNumberPredictor: React.FC = () => {
                       background: 'white',
                       padding: '15px',
                       borderRadius: '8px',
-                      border: '2px solid #3498db',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                      border: index === 0 ? '3px solid #ffd700' : '2px solid #3498db',
+                      boxShadow: index === 0 ? '0 4px 8px rgba(255, 215, 0, 0.3)' : '0 2px 4px rgba(0,0,0,0.1)',
+                      position: 'relative'
                     }}
                   >
+                    {index === 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-10px',
+                        right: '10px',
+                        background: '#ffd700',
+                        color: '#000',
+                        padding: '5px 15px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      }}>
+                        ⭐ TOP
+                      </div>
+                    )}
                     <div style={{ fontWeight: 'bold', color: '#2c3e50', marginBottom: '10px' }}>
                       {pred.method}
                     </div>
@@ -120,30 +263,32 @@ export const BigNumberPredictor: React.FC = () => {
                         ))}
                       </div>
                     </div>
-                    <div style={{ marginBottom: '10px' }}>
-                      <div style={{ fontSize: '11px', color: '#666', marginBottom: '5px' }}>Euro Numbers:</div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        {pred.predictedEuroNumbers.map((num: number, i: number) => (
-                          <div
-                            key={i}
-                            style={{
-                              background: '#f39c12',
-                              color: 'white',
-                              width: '35px',
-                              height: '35px',
-                              borderRadius: '50%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 'bold',
-                              fontSize: '14px'
-                            }}
-                          >
-                            {num}
-                          </div>
-                        ))}
+                    {pred.predictedEuroNumbers && pred.predictedEuroNumbers.length > 0 && (
+                      <div style={{ marginBottom: '10px' }}>
+                        <div style={{ fontSize: '11px', color: '#666', marginBottom: '5px' }}>Euro Numbers:</div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {pred.predictedEuroNumbers.map((num: number, i: number) => (
+                            <div
+                              key={i}
+                              style={{
+                                background: '#f39c12',
+                                color: 'white',
+                                width: '35px',
+                                height: '35px',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 'bold',
+                                fontSize: '14px'
+                              }}
+                            >
+                              {num}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>
                       Confidence: {pred.confidence}%
                     </div>
@@ -157,6 +302,88 @@ export const BigNumberPredictor: React.FC = () => {
               <p>No predictions available</p>
             )}
           </div>
+
+          {/* Enhanced Digit Analysis Summary */}
+          {analysis && (
+            <div style={{
+              marginBottom: '25px',
+              background: 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)',
+              padding: '20px',
+              borderRadius: '10px',
+              border: '2px solid #667eea'
+            }}>
+              <h3 style={{ color: '#2c3e50', marginTop: 0, marginBottom: '15px' }}>
+                📊 Enhanced Digit Analysis (Recent Focus)
+              </h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+                <div style={{ background: 'white', padding: '15px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px', fontWeight: 'bold' }}>
+                    📈 Top Frequent Digits (Last 30 Draws)
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {analysis.topDigits && analysis.topDigits.map((digit: any, i: number) => (
+                      <div key={i} style={{
+                        background: '#3498db',
+                        color: 'white',
+                        padding: '8px 12px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}>
+                        {digit}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ background: 'white', padding: '15px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px', fontWeight: 'bold' }}>
+                    🎯 Top Single Digits (Last Digits)
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {analysis.topSingleDigits && analysis.topSingleDigits.map((digit: any, i: number) => (
+                      <div key={i} style={{
+                        background: '#f39c12',
+                        color: 'white',
+                        padding: '8px 12px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}>
+                        {digit}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: 'white', padding: '15px', borderRadius: '8px' }}>
+                <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px', fontWeight: 'bold' }}>
+                  🔗 Top Digit Pair Transitions
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {analysis.topDigitPairs && analysis.topDigitPairs.map((pair: any, i: number) => (
+                    <div key={i} style={{
+                      background: '#9b59b6',
+                      color: 'white',
+                      padding: '8px 12px',
+                      borderRadius: '20px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      fontFamily: 'monospace'
+                    }}>
+                      {pair}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginTop: '12px', fontSize: '12px', color: '#666', fontStyle: 'italic' }}>
+                🔍 Method: {analysis.analysisMethod}
+              </div>
+            </div>
+          )}
 
           {/* Analysis Details */}
           <div style={{ marginBottom: '20px' }}>
@@ -215,7 +442,7 @@ export const BigNumberPredictor: React.FC = () => {
                               {pattern.euroBigNumber}
                             </div>
                             <div style={{ fontSize: '11px', color: '#666' }}>
-                              [{originalDraw?.euroNumbers.join(', ')}]
+                              [{originalDraw?.euroNumbers?.join(', ') || 'N/A'}]
                             </div>
                           </td>
                           <td style={{ padding: '8px', textAlign: 'right' }}>

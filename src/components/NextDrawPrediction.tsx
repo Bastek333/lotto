@@ -4,7 +4,7 @@ import { analyzeOrderPatterns } from '../utils/orderPatternAnalysis'
 type Draw = {
   drawDate: string
   numbers: number[]
-  euroNumbers: number[]
+  euroNumbers?: number[]
   jackpot?: string
   jackpotAmount?: string
 }
@@ -34,9 +34,14 @@ export default function NextDrawPrediction({ draws }: Props): JSX.Element {
   const latestDraw = draws[0]
   const previousDraw = draws.length > 1 ? draws[1] : null
   
+  // Detect game type
+  const hasEuroNumbers = draws.some(d => d.euroNumbers && d.euroNumbers.length > 0)
+  const maxMainNumber = hasEuroNumbers ? 50 : 49
+  const maxMainSelection = hasEuroNumbers ? 5 : 6
+  
   // ORDER PATTERN ANALYSIS (HIGHEST PRIORITY)
   const orderPatternPrediction = React.useMemo(() => {
-    const analysis = analyzeOrderPatterns(draws, 30)
+    const analysis = analyzeOrderPatterns(draws, 30, maxMainNumber, maxMainSelection)
     
     // Get top numbers based on order pattern scores
     const topMainNumbers = analysis.mainNumberScores

@@ -4,13 +4,17 @@ import { analyzeOrderPatterns } from '../utils/orderPatternAnalysis'
 type Draw = {
   drawDate: string
   numbers: number[]
-  euroNumbers: number[]
+  euroNumbers?: number[]
   jackpot?: string
   jackpotAmount?: string
 }
 
 type Props = {
   draws: Draw[]
+}
+
+type NormalizedDraw = Omit<Draw, 'euroNumbers'> & {
+  euroNumbers: number[]
 }
 
 type NumberScore = {
@@ -35,15 +39,35 @@ type AlgorithmResult = {
 }
 
 export default function ImprovedPrediction({ draws }: Props): JSX.Element {
-  const latestDraw = draws[0]
+  if (!draws || draws.length < 3) {
+    return (
+      <div className="analysis-container">
+        <h2>Improved Algorithm Prediction</h2>
+        <p className="info">
+          Not enough draw history to run improved predictions. Load at least 3 draws and try again.
+        </p>
+      </div>
+    )
+  }
+
+  const normalizedDraws: NormalizedDraw[] = draws.map(draw => ({
+    ...draw,
+    euroNumbers: draw.euroNumbers ?? []
+  }))
+
+  const latestDraw = normalizedDraws[0]
+  const hasEuroNumbers = normalizedDraws.some(d => d.euroNumbers.length > 0)
+  // Lotto: 6 numbers from 1-49, EuroJackpot: 5 numbers from 1-50
+  const maxMainNumber = hasEuroNumbers ? 50 : 49
+  const maxMainSelection = hasEuroNumbers ? 5 : 6
   
   // CRITICAL: Use only historical data (exclude latest draw) to prevent data leakage
-  const historicalDraws = draws.slice(1)
+  const historicalDraws: NormalizedDraw[] = normalizedDraws.slice(1)
   const previousDraw = historicalDraws.length > 0 ? historicalDraws[0] : null
 
   // ===== ALGORITHM 0: ORDER PATTERN ANALYSIS (HIGHEST PRIORITY) =====
   const orderPatternAlgorithm = React.useMemo(() => {
-    const analysis = analyzeOrderPatterns(historicalDraws, 30)
+    const analysis = analyzeOrderPatterns(historicalDraws, 30, maxMainNumber, maxMainSelection)
     
     // Get top numbers based on order pattern scores
     const topMainNumbers = analysis.mainNumberScores
@@ -80,16 +104,16 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     }
     
     return {
-      predictedMain: selectedNumbers.slice(0, 5).sort((a, b) => a - b),
+      predictedMain: selectedNumbers.slice(0, maxMainSelection).sort((a, b) => a - b),
       predictedEuro: topEuroNumbers.slice(0, 2).map(s => s.number).sort((a, b) => a - b)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 1: Weighted Hybrid (Original) =====
   const hybridAlgorithm = React.useMemo(() => {
     const mainScores: NumberScore[] = []
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       const totalAppearances = historicalDraws.filter(d => d.numbers.includes(num)).length
       const frequencyScore = (totalAppearances / historicalDraws.length) * 100
       
@@ -216,14 +240,14 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       mainScores: mainScores.sort((a, b) => b.totalScore - a.totalScore),
       euroScores: euroScores.sort((a, b) => b.totalScore - a.totalScore)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 2: Hot/Cold Balance =====
   const hotColdAlgorithm = React.useMemo(() => {
     const recentWindow = 10
     const mainScores: { number: number; score: number }[] = []
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       const recentAppearances = historicalDraws.slice(0, recentWindow).filter(d => d.numbers.includes(num)).length
       const overallAppearances = historicalDraws.filter(d => d.numbers.includes(num)).length
       const overallRate = overallAppearances / historicalDraws.length
@@ -256,7 +280,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       mainScores: mainScores.sort((a, b) => b.score - a.score),
       euroScores: euroScores.sort((a, b) => b.score - a.score)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 3: Positional Analysis =====
   const positionalAlgorithm = React.useMemo(() => {
@@ -264,7 +288,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     const positionalFreq: Map<number, number[]> = new Map()
     
     // Analyze which numbers appear in which positions
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       const positionScores = [0, 0, 0, 0, 0]
       historicalDraws.forEach(draw => {
         const sortedNumbers = [...draw.numbers].sort((a, b) => a - b)
@@ -284,7 +308,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       let bestNum = 0
       let bestScore = 0
       
-      for (let num = 1; num <= 50; num++) {
+      for (let num = 1; num <= maxMainNumber; num++) {
         if (!usedNumbers.has(num)) {
           const scores = positionalFreq.get(num) || [0, 0, 0, 0, 0]
           if (scores[pos] > bestScore) {
@@ -311,7 +335,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       predictedMain: predictedMain.sort((a, b) => a - b),
       predictedEuro: euroScores.sort((a, b) => b.score - a.score).slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 4: Number Pair Frequency =====
   const pairFrequencyAlgorithm = React.useMemo(() => {
@@ -331,7 +355,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     const numberScores: Map<number, number> = new Map()
     const referenceDraw = historicalDraws[0] // Use most recent historical draw
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       if (!referenceDraw.numbers.includes(num)) {
         let score = 0
         referenceDraw.numbers.forEach(refNum => {
@@ -375,7 +399,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       predictedMain,
       predictedEuro: sortedEuroScores.slice(0, 2).map(s => s[0])
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 5: Delta System =====
   const deltaAlgorithm = React.useMemo(() => {
@@ -402,10 +426,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     predictedMain.push(currentNum)
     
     let deltaIdx = 0
-    while (predictedMain.length < 5) {
+    while (predictedMain.length < maxMainSelection) {
       const delta = sortedDeltas[deltaIdx % sortedDeltas.length]
       currentNum += delta
-      if (currentNum <= 50 && !predictedMain.includes(currentNum)) {
+      if (currentNum <= maxMainNumber && !predictedMain.includes(currentNum)) {
         predictedMain.push(currentNum)
       }
       deltaIdx++
@@ -437,10 +461,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     }
     
     return {
-      predictedMain: predictedMain.slice(0, 5).sort((a, b) => a - b),
+      predictedMain: predictedMain.slice(0, maxMainSelection).sort((a, b) => a - b),
       predictedEuro: euroScores.sort((a, b) => b.score - a.score).slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 6: Machine Learning-Inspired (Weighted Features) =====
   const mlInspiredAlgorithm = React.useMemo(() => {
@@ -490,10 +514,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 7: Fibonacci Sequence =====
   const fibonacciAlgorithm = React.useMemo(() => {
@@ -501,7 +525,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     const fibSequence = [1, 2, 3, 5, 8, 13, 21, 34]
     const mainScores: { number: number; score: number }[] = []
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       const frequency = historicalDraws.filter(d => d.numbers.includes(num)).length / historicalDraws.length
       
       // Bonus for Fibonacci numbers
@@ -528,10 +552,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     }
     
     return {
-      predictedMain: mainScores.sort((a, b) => b.score - a.score).slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.sort((a, b) => b.score - a.score).slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.sort((a, b) => b.score - a.score).slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 8: Markov Chain =====
   const markovChainAlgorithm = React.useMemo(() => {
@@ -606,14 +630,14 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       predictedMain,
       predictedEuro: sortedEuroScores.slice(0, 2).map(s => s[0])
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 9: Exponential Smoothing =====
   const exponentialSmoothingAlgorithm = React.useMemo(() => {
     const alpha = 0.3 // Smoothing factor
     const mainScores: Map<number, number> = new Map()
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       let smoothedValue = 0
       let weight = 1
       
@@ -653,7 +677,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       predictedMain: sortedMain,
       predictedEuro: sortedEuro
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 10: K-Nearest Neighbors =====
   const knnAlgorithm = React.useMemo(() => {
@@ -776,7 +800,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     for (let i = 0; i < populationSize; i++) {
       const combination: number[] = []
       while (combination.length < 5) {
-        const num = Math.floor(Math.random() * 50) + 1
+        const num = Math.floor(Math.random() * maxMainNumber) + 1
         if (!combination.includes(num)) {
           combination.push(num)
         }
@@ -816,7 +840,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
         
         // Fill missing genes
         while (child.length < 5) {
-          const num = Math.floor(Math.random() * 50) + 1
+          const num = Math.floor(Math.random() * maxMainNumber) + 1
           if (!child.includes(num)) {
             child.push(num)
           }
@@ -825,9 +849,9 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
         // Mutation
         if (Math.random() < mutationRate) {
           const idx = Math.floor(Math.random() * 5)
-          let newNum = Math.floor(Math.random() * 50) + 1
+          let newNum = Math.floor(Math.random() * maxMainNumber) + 1
           while (child.includes(newNum)) {
-            newNum = Math.floor(Math.random() * 50) + 1
+            newNum = Math.floor(Math.random() * maxMainNumber) + 1
           }
           child[idx] = newNum
         }
@@ -901,7 +925,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       predictedMain: finalScored[0].combo,
       predictedEuro: finalEuroScored[0].combo
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 12: Neural Network-Inspired =====
   const neuralNetworkAlgorithm = React.useMemo(() => {
@@ -961,10 +985,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 13: Monte Carlo Simulation =====
   const monteCarloAlgorithm = React.useMemo(() => {
@@ -976,7 +1000,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     const mainProbs: Map<number, number> = new Map()
     const euroProbs: Map<number, number> = new Map()
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       const count = historicalDraws.filter(d => d.numbers.includes(num)).length
       mainProbs.set(num, count / historicalDraws.length)
     }
@@ -1045,7 +1069,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .map(e => e[0])
     
     return { predictedMain, predictedEuro }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 14: Bayesian Probability =====
   const bayesianAlgorithm = React.useMemo(() => {
@@ -1087,10 +1111,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 15: Time Series Decomposition =====
   const timeSeriesAlgorithm = React.useMemo(() => {
@@ -1133,10 +1157,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 16: Entropy-Based Selection =====
   const entropyAlgorithm = React.useMemo(() => {
@@ -1177,10 +1201,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 17: K-Means Clustering =====
   const clusteringAlgorithm = React.useMemo(() => {
@@ -1270,7 +1294,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     // Select numbers that match cluster profile
     const numberScores: Map<number, number> = new Map()
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       const freq = historicalDraws.filter(d => d.numbers.includes(num)).length / historicalDraws.length
       const avgContribution = Math.abs(num - targetAvg) / targetAvg
       const score = freq * 100 - avgContribution * 20
@@ -1348,10 +1372,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 19: Chi-Square Statistical Test =====
   const chiSquareAlgorithm = React.useMemo(() => {
@@ -1389,10 +1413,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 20: Fourier Transform (Frequency Domain Analysis) =====
   const fourierAlgorithm = React.useMemo(() => {
@@ -1441,10 +1465,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 21: Regression Analysis with Feature Engineering =====
   const regressionAlgorithm = React.useMemo(() => {
@@ -1513,10 +1537,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 22: Support Vector Machine Inspired =====
   const svmInspiredAlgorithm = React.useMemo(() => {
@@ -1573,10 +1597,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 23: Random Forest Inspired (Decision Trees Ensemble) =====
   const randomForestAlgorithm = React.useMemo(() => {
@@ -1642,10 +1666,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 24: Gradient Boosting Inspired =====
   const gradientBoostingAlgorithm = React.useMemo(() => {
@@ -1706,10 +1730,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 25: LSTM-Inspired Sequential Pattern Recognition =====
   const lstmInspiredAlgorithm = React.useMemo(() => {
@@ -1755,10 +1779,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 26: XGBoost-Inspired (Extreme Gradient Boosting) =====
   const xgboostAlgorithm = React.useMemo(() => {
@@ -1811,10 +1835,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 27: Deep Belief Network (Restricted Boltzmann Machine) =====
   const deepBeliefNetworkAlgorithm = React.useMemo(() => {
@@ -1874,10 +1898,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 28: Attention Mechanism (Transformer-Inspired) =====
   const attentionAlgorithm = React.useMemo(() => {
@@ -1952,10 +1976,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 29: Wavelet Transform (Multi-Resolution Analysis) =====
   const waveletAlgorithm = React.useMemo(() => {
@@ -2021,10 +2045,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 30: Graph Neural Network (Number Relationships) =====
   const graphNeuralNetworkAlgorithm = React.useMemo(() => {
@@ -2096,10 +2120,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 31: Reinforcement Learning (Q-Learning Inspired) =====
   const reinforcementLearningAlgorithm = React.useMemo(() => {
@@ -2163,10 +2187,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 32: Generative Adversarial Network (GAN-Inspired) =====
   const ganAlgorithm = React.useMemo(() => {
@@ -2225,10 +2249,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 33: Meta-Learning (Learning to Learn) =====
   const metaLearningAlgorithm = React.useMemo(() => {
@@ -2296,10 +2320,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 34: Variational Autoencoder (VAE-Inspired) =====
   const vaeAlgorithm = React.useMemo(() => {
@@ -2360,10 +2384,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 35: Capsule Network Inspired =====
   const capsuleNetworkAlgorithm = React.useMemo(() => {
@@ -2436,10 +2460,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 36: Temporal Convolutional Network (TCN) =====
   const tcnAlgorithm = React.useMemo(() => {
@@ -2502,10 +2526,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 37: Siamese Network (Similarity Learning) =====
   const siameseNetworkAlgorithm = React.useMemo(() => {
@@ -2575,10 +2599,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 38: Bidirectional LSTM =====
   const bidirectionalLSTMAlgorithm = React.useMemo(() => {
@@ -2637,10 +2661,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 39: ResNet-Inspired (Residual Connections) =====
   const resnetAlgorithm = React.useMemo(() => {
@@ -2688,10 +2712,10 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       .sort((a, b) => b.score - a.score)
     
     return {
-      predictedMain: mainScores.slice(0, 5).map(s => s.number),
+      predictedMain: mainScores.slice(0, maxMainSelection).map(s => s.number),
       predictedEuro: euroScores.slice(0, 2).map(s => s.number)
     }
-  }, [historicalDraws])
+  }, [historicalDraws, maxMainNumber, maxMainSelection])
 
   // ===== ALGORITHM 40: Adaptive Weighted Ensemble (Uses ALL algorithms) =====
   const ensembleAlgorithm = React.useMemo(() => {
@@ -2701,8 +2725,8 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     const algorithms = [
       orderPatternAlgorithm.predictedMain, // HIGHEST PRIORITY - add first with bonus weight
       orderPatternAlgorithm.predictedMain, // Add twice to give it 2x weight
-      hybridAlgorithm.mainScores.slice(0, 5).map(s => s.number),
-      hotColdAlgorithm.mainScores.slice(0, 5).map(s => s.number),
+      hybridAlgorithm.mainScores.slice(0, maxMainSelection).map(s => s.number),
+      hotColdAlgorithm.mainScores.slice(0, maxMainSelection).map(s => s.number),
       positionalAlgorithm.predictedMain,
       pairFrequencyAlgorithm.predictedMain,
       mlInspiredAlgorithm.predictedMain,
@@ -2856,8 +2880,8 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       // We'll use the current algorithm predictions as a baseline
       const algorithms = [
         { name: '🏆 Order Pattern Analysis', main: orderPatternAlgorithm.predictedMain, euro: orderPatternAlgorithm.predictedEuro },
-        { name: 'Weighted Hybrid', main: hybridAlgorithm.mainScores.slice(0, 5).map(s => s.number), euro: hybridAlgorithm.euroScores.slice(0, 2).map(s => s.number) },
-        { name: 'Hot/Cold Balance', main: hotColdAlgorithm.mainScores.slice(0, 5).map(s => s.number), euro: hotColdAlgorithm.euroScores.slice(0, 2).map(s => s.number) },
+        { name: 'Weighted Hybrid', main: hybridAlgorithm.mainScores.slice(0, maxMainSelection).map(s => s.number), euro: hybridAlgorithm.euroScores.slice(0, 2).map(s => s.number) },
+        { name: 'Hot/Cold Balance', main: hotColdAlgorithm.mainScores.slice(0, maxMainSelection).map(s => s.number), euro: hotColdAlgorithm.euroScores.slice(0, 2).map(s => s.number) },
         { name: 'Positional Analysis', main: positionalAlgorithm.predictedMain, euro: positionalAlgorithm.predictedEuro },
         { name: 'Pair Frequency', main: pairFrequencyAlgorithm.predictedMain, euro: pairFrequencyAlgorithm.predictedEuro },
         { name: 'Delta System', main: deltaAlgorithm.predictedMain, euro: deltaAlgorithm.predictedEuro },
@@ -2939,7 +2963,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       }
 
       // 1. Hybrid Algorithm
-      const hybridMain = hybridAlgorithm.mainScores.slice(0, 5).map(s => s.number)
+      const hybridMain = hybridAlgorithm.mainScores.slice(0, maxMainSelection).map(s => s.number)
       const hybridEuro = hybridAlgorithm.euroScores.slice(0, 2).map(s => s.number)
       const hybridMainMatches = calculateMatches(hybridMain, targetDraw.numbers)
       const hybridEuroMatches = calculateMatches(hybridEuro, targetDraw.euroNumbers)
@@ -2956,7 +2980,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       })
 
       // 2. Hot/Cold Balance
-      const hotColdMain = hotColdAlgorithm.mainScores.slice(0, 5).map(s => s.number)
+      const hotColdMain = hotColdAlgorithm.mainScores.slice(0, maxMainSelection).map(s => s.number)
       const hotColdEuro = hotColdAlgorithm.euroScores.slice(0, 2).map(s => s.number)
       const hotColdMainMatches = calculateMatches(hotColdMain, targetDraw.numbers)
       const hotColdEuroMatches = calculateMatches(hotColdEuro, targetDraw.euroNumbers)
@@ -3681,8 +3705,8 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
         
         // Find the algorithm's predictions
         const algorithmMap: { [key: string]: number[] } = {
-          'Weighted Hybrid': hybridAlgorithm.mainScores.slice(0, 5).map(s => s.number),
-          'Hot/Cold Balance': hotColdAlgorithm.mainScores.slice(0, 5).map(s => s.number),
+          'Weighted Hybrid': hybridAlgorithm.mainScores.slice(0, maxMainSelection).map(s => s.number),
+          'Hot/Cold Balance': hotColdAlgorithm.mainScores.slice(0, maxMainSelection).map(s => s.number),
           'Positional Analysis': positionalAlgorithm.predictedMain,
           'Pair Frequency': pairFrequencyAlgorithm.predictedMain,
           'Delta System': deltaAlgorithm.predictedMain,
@@ -3791,7 +3815,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     const sortedPredictedEuro = [...predictedEuroNumbers].sort((a, b) => a - b)
     
     // Check all draws including latest
-    for (const draw of draws) {
+    for (const draw of normalizedDraws) {
       const sortedDrawMain = [...draw.numbers].sort((a, b) => a - b)
       const sortedDrawEuro = [...draw.euroNumbers].sort((a, b) => a - b)
       
@@ -3814,7 +3838,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     }
     
     return { isDuplicate: false }
-  }, [predictedMainNumbers, predictedEuroNumbers, draws])
+  }, [predictedMainNumbers, predictedEuroNumbers, normalizedDraws])
 
   // Check if Rank 1 algorithm's prediction is a duplicate
   const rank1DuplicateCheck = React.useMemo(() => {
@@ -3827,7 +3851,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     const sortedPredictedEuro = [...rank1Euro].sort((a, b) => a - b)
     
     // Check all draws including latest
-    for (const draw of draws) {
+    for (const draw of normalizedDraws) {
       const sortedDrawMain = [...draw.numbers].sort((a, b) => a - b)
       const sortedDrawEuro = [...draw.euroNumbers].sort((a, b) => a - b)
       
@@ -3850,7 +3874,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     }
     
     return { isDuplicate: false }
-  }, [algorithmComparison, draws])
+  }, [algorithmComparison, normalizedDraws])
 
   // Validate previous prediction (keeping original validation logic)
   const previousDrawPrediction = React.useMemo(() => {
@@ -3859,7 +3883,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
     // Calculate scores based on the previous draw
     const prevMainScores: NumberScore[] = []
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       let frequencyScore = 0
       let recentScore = 0
       let gapScore = 0
@@ -3997,7 +4021,7 @@ export default function ImprovedPrediction({ draws }: Props): JSX.Element {
       })
     }
 
-    const prevPredictedMain = prevMainScores.sort((a, b) => b.totalScore - a.totalScore).slice(0, 5).map(s => s.number)
+    const prevPredictedMain = prevMainScores.sort((a, b) => b.totalScore - a.totalScore).slice(0, maxMainSelection).map(s => s.number)
     const prevPredictedEuro = prevEuroScores.sort((a, b) => b.totalScore - a.totalScore).slice(0, 2).map(s => s.number)
 
     const mainMatches = prevPredictedMain.filter(num => latestDraw.numbers.includes(num))

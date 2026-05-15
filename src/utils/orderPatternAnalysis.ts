@@ -13,7 +13,7 @@
 type Draw = {
   drawDate: string
   numbers: number[]
-  euroNumbers: number[]
+  euroNumbers?: number[]
 }
 
 export type OrderPatternScore = {
@@ -40,17 +40,17 @@ export type OrderPatternAnalysis = {
 /**
  * Main function to analyze order patterns in historical draws
  */
-export function analyzeOrderPatterns(draws: Draw[], recentDrawsCount: number = 30): OrderPatternAnalysis {
+export function analyzeOrderPatterns(draws: Draw[], recentDrawsCount: number = 30, maxMainNumber: number = 50, maxMainSelection: number = 5): OrderPatternAnalysis {
   const recentDraws = draws.slice(0, Math.min(recentDrawsCount, draws.length))
   
   // Analyze main numbers
-  const mainNumberScores = analyzeMainNumberOrderPatterns(recentDraws, draws)
+  const mainNumberScores = analyzeMainNumberOrderPatterns(recentDraws, draws, maxMainNumber, maxMainSelection)
   
   // Analyze euro numbers
   const euroNumberScores = analyzeEuroNumberOrderPatterns(recentDraws, draws)
   
   // Extract pattern insights
-  const patternInsights = extractPatternInsights(recentDraws)
+  const patternInsights = extractPatternInsights(recentDraws, maxMainNumber)
   
   return {
     mainNumberScores,
@@ -62,10 +62,10 @@ export function analyzeOrderPatterns(draws: Draw[], recentDrawsCount: number = 3
 /**
  * Analyze order patterns for main numbers (1-50)
  */
-function analyzeMainNumberOrderPatterns(recentDraws: Draw[], allDraws: Draw[]): OrderPatternScore[] {
+function analyzeMainNumberOrderPatterns(recentDraws: Draw[], allDraws: Draw[], maxMainNumber: number, maxMainSelection: number): OrderPatternScore[] {
   const scores: OrderPatternScore[] = []
   
-  for (let num = 1; num <= 50; num++) {
+  for (let num = 1; num <= maxMainNumber; num++) {
     const positionScore = calculatePositionScore(num, recentDraws)
     const gapPatternScore = calculateGapPatternScore(num, recentDraws)
     const sequenceScore = calculateSequenceScore(num, recentDraws)
@@ -464,7 +464,7 @@ function findEuroPreferredPosition(num: number, draws: Draw[]): number {
 /**
  * Extract overall pattern insights from draws
  */
-function extractPatternInsights(draws: Draw[]): {
+function extractPatternInsights(draws: Draw[], maxMainNumber: number): {
   commonGapPattern: number[]
   preferredPositions: Map<number, number>
   sequenceTendency: 'ascending' | 'mixed' | 'balanced'
@@ -508,7 +508,7 @@ function extractPatternInsights(draws: Draw[]): {
   
   // Build preferred positions map
   const preferredPositions = new Map<number, number>()
-  for (let num = 1; num <= 50; num++) {
+  for (let num = 1; num <= maxMainNumber; num++) {
     preferredPositions.set(num, findPreferredPosition(num, draws))
   }
   

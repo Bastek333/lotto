@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react'
 type Draw = {
   drawDate: string
   numbers: number[]
-  euroNumbers: number[]
+  euroNumbers?: number[]
   jackpot?: string
   jackpotAmount?: string
 }
@@ -23,6 +23,11 @@ interface MatchResult {
 }
 
 export default function CombinationChecker({ draws }: CombinationCheckerProps): JSX.Element {
+  const hasEuroNumbers = draws.some(d => d.euroNumbers && d.euroNumbers.length > 0)
+  // Lotto: 6 numbers from 1-49, EuroJackpot: 5 numbers from 1-50
+  const maxMainNumber = hasEuroNumbers ? 50 : 49
+  const maxMainSelection = hasEuroNumbers ? 5 : 6
+  
   // Use Set for selected numbers instead of strings
   const [selectedMainNumbers, setSelectedMainNumbers] = useState<Set<number>>(() => {
     const saved = localStorage.getItem('checkerMainNumbers')
@@ -66,8 +71,8 @@ export default function CombinationChecker({ draws }: CombinationCheckerProps): 
       if (newSet.has(num)) {
         newSet.delete(num)
       } else {
-        // Allow up to 5 main numbers
-        if (newSet.size < 5) {
+        // Allow up to maxMainSelection main numbers
+        if (newSet.size < maxMainSelection) {
           newSet.add(num)
         }
       }
@@ -103,9 +108,9 @@ export default function CombinationChecker({ draws }: CombinationCheckerProps): 
       return
     }
 
-    // Allow 1-5 main numbers and 0-2 euro numbers
-    if (selectedMainNumbers.size > 5) {
-      setError('Please select a maximum of 5 main numbers.')
+    // Allow appropriate number of main numbers and 0-2 euro numbers
+    if (selectedMainNumbers.size > maxMainSelection) {
+      setError(`Please select a maximum of ${maxMainSelection} main numbers.`)
       return
     }
 
@@ -129,8 +134,8 @@ export default function CombinationChecker({ draws }: CombinationCheckerProps): 
         matchedMain = mainNums.filter(n => draw.numbers.includes(n))
       }
       
-      if (euroNums.length > 0) {
-        matchedEuro = euroNums.filter(n => draw.euroNumbers.includes(n))
+      if (euroNums.length > 0 && draw.euroNumbers) {
+        matchedEuro = euroNums.filter(n => draw.euroNumbers!.includes(n))
       }
 
       // All entered main numbers must match AND all entered euro numbers must match
@@ -145,7 +150,7 @@ export default function CombinationChecker({ draws }: CombinationCheckerProps): 
           matchedMainNumbers: matchedMain.sort((a, b) => a - b),
           matchedEuroNumbers: matchedEuro.sort((a, b) => a - b),
           fullMainNumbers: [...draw.numbers].sort((a, b) => a - b),
-          fullEuroNumbers: [...draw.euroNumbers].sort((a, b) => a - b)
+          fullEuroNumbers: draw.euroNumbers ? [...draw.euroNumbers].sort((a, b) => a - b) : []
         })
       }
     })
@@ -189,16 +194,16 @@ export default function CombinationChecker({ draws }: CombinationCheckerProps): 
     <div className="combination-checker">
       <h2>Check Your Combination</h2>
       <p className="checker-intro">
-        Enter 1 to 5 main numbers and/or 1-2 euro numbers to find all historical draws that contain your selected numbers.
+        Enter {hasEuroNumbers ? '1 to 5 main numbers and/or 1-2 euro numbers' : '1 to 6 main numbers'} to find all historical draws that contain your selected numbers.
       </p>
 
       <div className="checker-form">
         <div className="ball-selection-group">
           <label>
-            <strong>Main Numbers ({selectedMainNumbers.size} selected - select 1-5)</strong>
+            <strong>Main Numbers ({selectedMainNumbers.size} selected - select 1-{maxMainSelection})</strong>
           </label>
           <div className="ball-grid main-ball-grid">
-            {Array.from({ length: 50 }, (_, i) => i + 1).map(num => (
+            {Array.from({ length: maxMainNumber }, (_, i) => i + 1).map(num => (
               <div
                 key={num}
                 className={`selectable-ball ${selectedMainNumbers.has(num) ? 'selected' : ''}`}
@@ -210,22 +215,24 @@ export default function CombinationChecker({ draws }: CombinationCheckerProps): 
           </div>
         </div>
 
-        <div className="ball-selection-group">
-          <label>
-            <strong>Euro Numbers ({selectedEuroNumbers.size} selected - optional)</strong>
-          </label>
-          <div className="ball-grid euro-ball-grid">
-            {Array.from({ length: 12 }, (_, i) => i + 1).map(num => (
-              <div
-                key={num}
-                className={`selectable-ball euro-selectable ${selectedEuroNumbers.has(num) ? 'selected' : ''}`}
-                onClick={() => toggleEuroNumber(num)}
-              >
-                {num}
-              </div>
-            ))}
+        {hasEuroNumbers && (
+          <div className="ball-selection-group">
+            <label>
+              <strong>Euro Numbers ({selectedEuroNumbers.size} selected - optional)</strong>
+            </label>
+            <div className="ball-grid euro-ball-grid">
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(num => (
+                <div
+                  key={num}
+                  className={`selectable-ball euro-selectable ${selectedEuroNumbers.has(num) ? 'selected' : ''}`}
+                  onClick={() => toggleEuroNumber(num)}
+                >
+                  {num}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {error && (
           <div className="checker-error">

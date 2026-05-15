@@ -1,6 +1,6 @@
 /**
- * EuroJackpot API Service - Official Lotto.pl API
- * Fetches EuroJackpot draw results from official Lotto.pl API
+ * Lotto API Service - Official Lotto.pl API
+ * Fetches Lotto draw results from official Lotto.pl API
  * API Documentation: https://developers.lotto.pl/
  */
 
@@ -21,7 +21,7 @@ const PROXY_URL = '/api-proxy.php'
 const REQUEST_DELAY_MS = 500 // 500ms between requests
 
 // LocalStorage cache key
-const CACHE_KEY = 'eurojackpot_draws_cache'
+const CACHE_KEY = 'lotto_draws_cache'
 const CACHE_VERSION = 'v1' // Increment this to invalidate old cache
 
 /**
@@ -34,12 +34,12 @@ function delay(ms: number): Promise<void> {
 /**
  * Get cached draw from localStorage by date
  */
-function getCachedDraw(dateStr: string): EuroJackpotDraw | null {
+function getCachedDraw(dateStr: string): LottoDraw | null {
   try {
     const cacheKey = `${CACHE_KEY}_${CACHE_VERSION}_${dateStr}`
     const cached = localStorage.getItem(cacheKey)
     if (cached) {
-      return JSON.parse(cached) as EuroJackpotDraw
+      return JSON.parse(cached) as LottoDraw
     }
   } catch (error) {
     console.warn('Error reading from cache:', error)
@@ -50,7 +50,7 @@ function getCachedDraw(dateStr: string): EuroJackpotDraw | null {
 /**
  * Save draw to localStorage
  */
-function saveCachedDraw(dateStr: string, draw: EuroJackpotDraw): void {
+function saveCachedDraw(dateStr: string, draw: LottoDraw): void {
   try {
     const cacheKey = `${CACHE_KEY}_${CACHE_VERSION}_${dateStr}`
     localStorage.setItem(cacheKey, JSON.stringify(draw))
@@ -62,15 +62,15 @@ function saveCachedDraw(dateStr: string, draw: EuroJackpotDraw): void {
 /**
  * Check if a draw is incomplete (missing numbers)
  */
-function isDrawIncomplete(draw: EuroJackpotDraw): boolean {
-  return !draw.numbers || draw.numbers.length === 0 || !draw.euroNumbers || draw.euroNumbers.length === 0
+function isDrawIncomplete(draw: LottoDraw): boolean {
+  return !draw.numbers || draw.numbers.length === 0
 }
 
 /**
  * Get all cached draws from localStorage
  */
-export function getAllCachedDraws(): EuroJackpotDraw[] {
-  const draws: EuroJackpotDraw[] = []
+export function getAllCachedDraws(): LottoDraw[] {
+  const draws: LottoDraw[] = []
   try {
     const prefix = `${CACHE_KEY}_${CACHE_VERSION}_`
     for (let i = 0; i < localStorage.length; i++) {
@@ -100,7 +100,7 @@ export function getIncompleteCachedDates(): string[] {
       if (key && key.startsWith(prefix)) {
         const cached = localStorage.getItem(key)
         if (cached) {
-          const draw = JSON.parse(cached) as EuroJackpotDraw
+          const draw = JSON.parse(cached) as LottoDraw
           if (isDrawIncomplete(draw)) {
             // Extract date from cache key
             const dateStr = key.replace(prefix, '')
@@ -156,12 +156,12 @@ export function downloadDrawsAsJson(): void {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'eurojackpot_draws.json'
+    link.download = 'lotto_draws.json'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-    console.log('Historical draws exported to eurojackpot_draws.json - save to src/data/ folder')
+    console.log('Historical draws exported to lotto_draws.json - save to src/data/ folder')
   } catch (error) {
     console.error('Error exporting draws:', error)
   }
@@ -180,7 +180,7 @@ export async function saveDrawsToBackend(uploadToServer: boolean = false): Promi
       return null
     }
 
-    console.log(`📤 Saving ${draws.length} EuroJackpot draws...`)
+    console.log(`📤 Saving ${draws.length} Lotto draws...`)
 
     const response = await fetch('/api/save-draws', {
       method: 'POST',
@@ -188,7 +188,7 @@ export async function saveDrawsToBackend(uploadToServer: boolean = false): Promi
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        gameType: 'eurojackpot',
+        gameType: 'lotto',
         draws: draws,
         uploadToServer: uploadToServer
       })
@@ -210,11 +210,10 @@ export async function saveDrawsToBackend(uploadToServer: boolean = false): Promi
   }
 }
 
-export interface EuroJackpotDraw {
+export interface LottoDraw {
   drawDate: string
   drawSystemId: number
   numbers: number[]
-  euroNumbers: number[]
   jackpot?: string
   jackpotAmount?: number
 }
@@ -228,13 +227,12 @@ interface LottoApiDrawResult {
     drawSystemId: number
     gameType: string
     resultsJson: number[]
-    specialResults: number[]
   }>
 }
 
 /**
- * Generates all EuroJackpot draw dates from 2017 to current date
- * EuroJackpot draws are held every Tuesday and Friday
+ * Generates all Lotto draw dates from 2017 to current date
+ * Lotto draws are held on Tuesday, Thursday and Saturday
  * Excludes current day if time is before 23:00 (results not yet available)
  */
 function generateAllDrawDates(): Date[] {
@@ -259,8 +257,8 @@ function generateAllDrawDates(): Date[] {
   while (currentDate <= endDate) {
     const dayOfWeek = currentDate.getDay()
     
-    // Check if it's Tuesday (2) or Friday (5)
-    if (dayOfWeek === 2 || dayOfWeek === 5) {
+    // Check if it's Tuesday (2), Thursday (4) or Saturday (6)
+    if (dayOfWeek === 2 || dayOfWeek === 4 || dayOfWeek === 6) {
       drawDates.push(new Date(currentDate))
     }
     
@@ -273,13 +271,13 @@ function generateAllDrawDates(): Date[] {
 }
 
 /**
- * Fetches all EuroJackpot historical draw results from official Lotto.pl API
+ * Fetches all Lotto historical draw results from official Lotto.pl API
  * Uses date-specific approach to retrieve complete history
  * Implements localStorage caching to reduce API calls
  * @param refetchIncompleteDatesOnly - If true, only refetch dates with missing draw numbers
  */
-export async function fetchEuroJackpotResults(refetchIncompleteDatesOnly: boolean = false): Promise<EuroJackpotDraw[]> {
-  console.log('Fetching EuroJackpot results from official Lotto.pl API...')
+export async function fetchLottoResults(refetchIncompleteDatesOnly: boolean = false): Promise<LottoDraw[]> {
+  console.log('Fetching Lotto results from official Lotto.pl API...')
   
   // Get incomplete dates if selective refetch is requested
   let incompleteDatesSet = new Set<string>()
@@ -298,7 +296,7 @@ export async function fetchEuroJackpotResults(refetchIncompleteDatesOnly: boolea
 
   try {
     const allDrawDates = generateAllDrawDates()
-    const allDraws: EuroJackpotDraw[] = []
+    const allDraws: LottoDraw[] = []
     let successCount = 0
     let errorCount = 0
     let cachedCount = 0
@@ -340,7 +338,7 @@ export async function fetchEuroJackpotResults(refetchIncompleteDatesOnly: boolea
       }
       
       try {
-        const draw = await fetchEuroJackpotBySpecificDate(drawDate)
+        const draw = await fetchLottoBySpecificDate(drawDate)
         apiCallCount++
         
         if (draw) {
@@ -374,17 +372,17 @@ export async function fetchEuroJackpotResults(refetchIncompleteDatesOnly: boolea
 
   } catch (error: any) {
     console.error('Error fetching from Lotto.pl API:', error)
-    throw new Error(`Failed to fetch EuroJackpot data: ${error.message}`)
+    throw new Error(`Failed to fetch Lotto data: ${error.message}`)
   }
 }
 
 /**
- * Fetches EuroJackpot result for a specific date
+ * Fetches Lotto result for a specific date
  * Returns null if no draw exists on that date
  */
-async function fetchEuroJackpotBySpecificDate(drawDate: Date): Promise<EuroJackpotDraw | null> {
+async function fetchLottoBySpecificDate(drawDate: Date): Promise<LottoDraw | null> {
   const params = new URLSearchParams({
-    gameType: 'EuroJackpot',
+    gameType: 'Lotto',
     drawDate: drawDate.toISOString(),
     index: '1',
     size: '1',
@@ -457,7 +455,7 @@ async function fetchEuroJackpotBySpecificDate(drawDate: Date): Promise<EuroJackp
 /**
  * Helper function to sort and remove duplicates
  */
-function sortAndDeduplicate(draws: EuroJackpotDraw[]): EuroJackpotDraw[] {
+function sortAndDeduplicate(draws: LottoDraw[]): LottoDraw[] {
   // Remove duplicates based on drawSystemId
   const uniqueDraws = draws.filter((draw, index, self) =>
     index === self.findIndex(d => d.drawSystemId === draw.drawSystemId)
@@ -472,14 +470,11 @@ function sortAndDeduplicate(draws: EuroJackpotDraw[]): EuroJackpotDraw[] {
   return uniqueDraws
 }
 
-
-
 /**
  * Parse individual draw result from Lotto.pl API response
  */
-function parseDrawResult(draw: LottoApiDrawResult): EuroJackpotDraw {
+function parseDrawResult(draw: LottoApiDrawResult): LottoDraw {
   let mainNumbers: number[] = []
-  let euroNumbers: number[] = []
 
   // Extract numbers from results array
   if (Array.isArray(draw.results) && draw.results.length > 0) {
@@ -489,11 +484,6 @@ function parseDrawResult(draw: LottoApiDrawResult): EuroJackpotDraw {
     if (Array.isArray(result.resultsJson)) {
       mainNumbers = [...result.resultsJson]
     }
-    
-    // Get euro numbers from specialResults
-    if (Array.isArray(result.specialResults)) {
-      euroNumbers = [...result.specialResults]
-    }
   } else {
     console.warn(`Draw ${draw.drawSystemId} has no results array`)
   }
@@ -501,8 +491,7 @@ function parseDrawResult(draw: LottoApiDrawResult): EuroJackpotDraw {
   return {
     drawSystemId: draw.drawSystemId,
     drawDate: formatDrawDate(draw.drawDate),
-    numbers: mainNumbers,
-    euroNumbers: euroNumbers
+    numbers: mainNumbers
   }
 }
 

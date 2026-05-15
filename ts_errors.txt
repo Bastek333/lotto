@@ -1,0 +1,225 @@
+src/components/AdaptivePredictor.tsx(161,9): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/AdaptivePredictor.tsx(241,13): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/AdaptivePredictor.tsx(242,9): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/AdaptivePredictor.tsx(610,64): error TS18048: 'actualDraw.euroNumbers' is possibly 'undefined'.
+src/components/AdvancedPredictor.tsx(178,7): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/AdvancedPredictor.tsx(217,13): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/AdvancedPredictor.tsx(222,63): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/AdvancedPredictor.tsx(322,13): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/AdvancedPredictor.tsx(595,64): error TS18048: 'targetDraw.euroNumbers' is possibly 'undefined'.
+src/components/AdvancedPredictor.tsx(604,11): error TS2322: Type 'number[] | undefined' is not assignable to type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/CombinationAnalysis.tsx(94,32): error TS18048: 'drawNumbers' is possibly 'undefined'.
+src/components/CombinationAnalysis.tsx(99,28): error TS2488: Type 'number[] | undefined' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/components/CombinationAnalysis.tsx(445,11): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(159,60): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(163,57): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(168,13): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(190,9): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(192,17): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(194,28): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(247,84): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(248,62): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(310,49): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(357,11): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(365,12): error TS18048: 'referenceDraw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(367,9): error TS18048: 'referenceDraw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(439,49): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(464,56): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(471,74): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(477,22): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(526,53): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(528,63): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(584,7): error TS18048: 'currentDraw' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(590,9): error TS18048: 'nextDraw' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(597,5): error TS18048: 'referenceDraw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(644,27): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(712,28): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(712,57): error TS18048: 'previousDraw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(727,7): error TS18048: 'nextDraw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(868,50): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(924,57): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(925,86): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(929,22): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(942,60): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(989,49): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1058,58): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1063,66): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1075,22): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1109,56): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1159,57): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1169,76): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1293,44): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1314,21): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1364,61): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1381,18): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1409,36): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1462,51): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1500,22): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1534,18): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1538,18): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1543,22): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1556,20): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1590,57): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1591,72): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1599,22): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1613,49): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1625,7): error TS18048: 'refNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1628,18): error TS18048: 'numbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1628,46): error TS18048: 'numbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1664,57): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1668,72): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1675,22): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1689,49): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1733,36): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1748,57): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1782,20): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1798,20): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1829,19): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1866,18): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1901,36): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(1972,36): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2044,9): error TS18048: 'numbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2046,11): error TS18048: 'numbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2058,18): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2069,24): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2125,11): error TS18048: 'currentDraw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2130,11): error TS18048: 'nextDraw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2135,11): error TS18048: 'nextDraw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2149,18): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2155,18): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2186,36): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2256,20): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2264,20): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2268,20): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2286,18): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2323,38): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2352,18): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2388,22): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2457,19): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2523,24): error TS18048: 'nums1' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2528,24): error TS18048: 'nums2' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2554,13): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2566,18): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2602,11): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2616,11): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2629,18): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2657,18): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2669,20): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(2887,53): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(2949,62): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(2966,64): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(2983,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3000,58): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3017,60): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3034,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3051,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3068,62): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3085,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3102,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3119,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3136,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3153,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3170,60): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3187,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3204,64): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3221,64): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3238,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3255,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3272,64): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3289,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3306,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3323,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3340,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3357,58): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3374,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3391,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3408,58): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3425,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3442,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3459,54): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3476,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3493,58): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3510,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3527,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3544,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3561,58): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3578,62): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3595,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3612,56): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/ImprovedPrediction.tsx(3945,58): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(3949,57): error TS18048: 'd.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(3954,13): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(3975,7): error TS18048: 'previousDraw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(3977,15): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(3979,17): error TS2532: Object is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(4008,57): error TS18048: 'latestDraw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(4051,18): error TS18048: 'latestDraw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(4402,24): error TS18048: 'previousDrawPrediction.previousDraw.euroNumbers' is possibly 'undefined'.
+src/components/ImprovedPrediction.tsx(4477,24): error TS18048: 'latestDraw.euroNumbers' is possibly 'undefined'.
+src/components/NextDrawPrediction.tsx(147,5): error TS18048: 'latestDraw.euroNumbers' is possibly 'undefined'.
+src/components/NextDrawPrediction.tsx(156,13): error TS18048: 'previousDraw.euroNumbers' is possibly 'undefined'.
+src/components/NextDrawPrediction.tsx(158,57): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/NextDrawPrediction.tsx(242,5): error TS18048: 'previousDraw.euroNumbers' is possibly 'undefined'.
+src/components/NextDrawPrediction.tsx(249,13): error TS18048: 'historicalDraw.euroNumbers' is possibly 'undefined'.
+src/components/NextDrawPrediction.tsx(250,57): error TS2345: Argument of type 'number[] | undefined' is not assignable to parameter of type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/components/NextDrawPrediction.tsx(280,57): error TS18048: 'latestDraw.euroNumbers' is possibly 'undefined'.
+src/components/NextDrawPrediction.tsx(406,18): error TS18048: 'latestDraw.euroNumbers' is possibly 'undefined'.
+src/components/NextDrawPrediction.tsx(469,24): error TS18048: 'previousDrawPrediction.previousDraw.euroNumbers' is possibly 'undefined'.
+src/components/NextDrawPrediction.tsx(544,24): error TS18048: 'latestDraw.euroNumbers' is possibly 'undefined'.
+src/utils/backtestAlgorithms.ts(86,9): error TS18048: 'actualDraw.euroNumbers' is possibly 'undefined'.
+src/utils/backtestAlgorithms.ts(100,11): error TS2322: Type 'number[] | undefined' is not assignable to type 'number[]'.
+  Type 'undefined' is not assignable to type 'number[]'.
+src/utils/backtestAlgorithms.ts(218,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(83,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(185,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(248,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(252,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(305,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(383,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/improvedAlgorithms.ts(480,5): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/orderPatternAnalysis.ts(439,9): error TS18048: 'draw.euroNumbers' is possibly 'undefined'.
+src/utils/orderPatternAnalysis.ts(511,28): error TS2304: Cannot find name 'maxMainNumber'.

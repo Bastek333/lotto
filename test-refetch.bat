@@ -1,0 +1,47 @@
+@echo off
+REM Quick start script for testing refetch functionality
+REM Usage: test-refetch.bat
+
+echo.
+echo 🎰 Lotto Refetch Test Guide
+echo ==============================
+echo.
+echo Step 1: Install dependencies
+echo   npm install
+echo.
+echo Step 2: Start both servers in separate terminals
+echo.
+echo Terminal 1 - Start Vite dev server:
+echo   npm run dev
+echo   (will run on http://localhost:5173)
+echo.
+echo Terminal 2 - Start Node backend:
+echo   npm run server
+echo   (will run on http://localhost:3001)
+echo.
+echo Or start both at once:
+echo   npm run dev:all
+echo.
+echo Step 3: Test in browser
+echo   1. Open http://localhost:5173
+echo   2. Click the '🔄 Refetch' button
+echo   3. Enable '○ Auto-Export' if not already enabled
+echo   4. Wait for download/save to complete
+echo.
+echo Step 4: Verify files were saved
+echo   Check these locations:
+echo   - src/data/eurojackpot_draws.json (or lotto_draws.json)
+echo   - server-backups/ (for timestamped backups)
+echo.
+echo Step 5: Test backend endpoints (optional)
+echo   curl http://localhost:3001/api/health
+echo   curl http://localhost:3001/api/draws-status
+echo   curl http://localhost:3001/api/backups
+echo.
+echo Troubleshooting:
+echo   - If refetch fails, check browser console (F12)
+echo   - Ensure Node.js backend is running
+echo   - Verify port 3001 is available
+echo   - Check file permissions on src/data/ directory
+echo.
+pause

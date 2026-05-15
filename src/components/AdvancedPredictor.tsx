@@ -21,7 +21,7 @@ import { analyzeOrderPatterns } from '../utils/orderPatternAnalysis'
 type Draw = {
   drawDate: string
   numbers: number[]
-  euroNumbers: number[]
+  euroNumbers?: number[]
   jackpot?: string
   jackpotAmount?: string
 }
@@ -54,6 +54,9 @@ interface Props {
 }
 
 export default function AdvancedPredictor({ data }: Props): JSX.Element {
+  const hasEuroNumbers = data.some(d => d.euroNumbers && d.euroNumbers.length > 0)
+  const maxMainNumber = hasEuroNumbers ? 50 : 49
+  const maxMainSelection = hasEuroNumbers ? 5 : 6
   const [backtestResults, setBacktestResults] = useState<PredictionResult[]>([])
   const [metrics, setMetrics] = useState<AlgorithmMetrics | null>(null)
   const [nextPrediction, setNextPrediction] = useState<{ numbers: number[], euroNumbers: number[], isDuplicate?: { exists: boolean, drawDate?: string } } | null>(null)
@@ -68,7 +71,7 @@ export default function AdvancedPredictor({ data }: Props): JSX.Element {
     }
 
     // Phase 0: ORDER PATTERN ANALYSIS (HIGHEST PRIORITY)
-    const orderPatternData = analyzeOrderPatterns(historicalDraws, 30)
+    const orderPatternData = analyzeOrderPatterns(historicalDraws, 30, maxMainNumber, maxMainSelection)
 
     // Phase 1: Multi-dimensional Frequency Analysis
     const frequencyData = analyzeFrequencies(historicalDraws)
@@ -189,7 +192,7 @@ export default function AdvancedPredictor({ data }: Props): JSX.Element {
     const recent = draws.slice(0, 15)
     const older = draws.slice(15, 50)
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       // Exponentially weighted count (more recent = higher weight)
       let recentWeightedCount = 0
       recent.forEach((d, idx) => {
@@ -233,7 +236,7 @@ export default function AdvancedPredictor({ data }: Props): JSX.Element {
     const lastDraw = draws[0]
     
     // Look for numbers that appeared after similar patterns
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       let patternScore = 0
       
       // Find historical draws similar to the last draw
@@ -275,7 +278,7 @@ export default function AdvancedPredictor({ data }: Props): JSX.Element {
     const euroGaps = new Map<number, number>()
     
     // Calculate average gap and variance for each number
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       const appearances: number[] = []
       draws.forEach((draw, idx) => {
         if (draw.numbers.includes(num)) {
@@ -363,7 +366,7 @@ export default function AdvancedPredictor({ data }: Props): JSX.Element {
     
     // Calculate position entropy (variety of positions) as a score
     const positionScores = new Map<number, number>()
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       const positions = positionPrefs.get(num)
       if (positions) {
         const total = positions.reduce((a, b) => a + b, 0)
@@ -401,7 +404,7 @@ export default function AdvancedPredictor({ data }: Props): JSX.Element {
     })
     
     // Score numbers based on cluster distribution
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       const cluster = Math.floor((num - 1) / 10)
       const clusterScore = (clusterFreq.get(cluster) || 0) / draws.length
       clusterScores.set(num, clusterScore * 100)
@@ -437,7 +440,7 @@ export default function AdvancedPredictor({ data }: Props): JSX.Element {
       cluster: 0.01         // Minimized
     }
     
-    for (let num = 1; num <= 50; num++) {
+    for (let num = 1; num <= maxMainNumber; num++) {
       const freqShort = ((freq.mainShort.get(num) || 0) / Math.min(15, draws.length)) * 100
       const freqMedium = ((freq.mainMedium.get(num) || 0) / Math.min(50, draws.length)) * 100
       const freqLong = ((freq.mainLong.get(num) || 0) / draws.length) * 100

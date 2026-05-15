@@ -3,7 +3,7 @@ import React, { useMemo } from 'react'
 type Draw = {
   drawDate: string
   numbers: number[]
-  euroNumbers: number[]
+  euroNumbers?: number[]
   jackpot?: string
   jackpotAmount?: string
 }
@@ -13,30 +13,36 @@ interface FrequencyAnalysisProps {
 }
 
 export default function FrequencyAnalysis({ draws }: FrequencyAnalysisProps): JSX.Element {
-  // Calculate frequency for main numbers (1-50)
+  const hasEuroNumbers = draws.some(d => d.euroNumbers && d.euroNumbers.length > 0)
+  // Lotto: 6 numbers from 1-49, EuroJackpot: 5 numbers from 1-50
+  const maxMainNumber = hasEuroNumbers ? 50 : 49
+  
+  // Calculate frequency for main numbers
   const mainNumbersFrequency = useMemo(() => {
     const frequency: Record<number, number> = {}
     
-    // Initialize all numbers 1-50 with 0
-    for (let i = 1; i <= 50; i++) {
+    // Initialize all numbers with 0
+    for (let i = 1; i <= maxMainNumber; i++) {
       frequency[i] = 0
     }
     
     // Count occurrences
     draws.forEach(draw => {
       draw.numbers.forEach(num => {
-        if (num >= 1 && num <= 50) {
+        if (num >= 1 && num <= maxMainNumber) {
           frequency[num]++
         }
       })
     })
     
     return frequency
-  }, [draws])
+  }, [draws, maxMainNumber])
 
   // Calculate frequency for euro numbers (1-12)
   const euroNumbersFrequency = useMemo(() => {
     const frequency: Record<number, number> = {}
+    
+    if (!hasEuroNumbers) return frequency
     
     // Initialize all numbers 1-12 with 0
     for (let i = 1; i <= 12; i++) {
@@ -45,40 +51,44 @@ export default function FrequencyAnalysis({ draws }: FrequencyAnalysisProps): JS
     
     // Count occurrences
     draws.forEach(draw => {
-      draw.euroNumbers.forEach(num => {
-        if (num >= 1 && num <= 12) {
-          frequency[num]++
-        }
-      })
+      if (draw.euroNumbers) {
+        draw.euroNumbers.forEach(num => {
+          if (num >= 1 && num <= 12) {
+            frequency[num]++
+          }
+        })
+      }
     })
     
     return frequency
-  }, [draws])
+  }, [draws, hasEuroNumbers])
 
   // Calculate last draw index for main numbers (0 = most recent)
   const mainNumbersLastDraw = useMemo(() => {
     const lastDraw: Record<number, number> = {}
     
-    // Initialize all numbers 1-50 with -1 (never drawn)
-    for (let i = 1; i <= 50; i++) {
+    // Initialize all numbers with -1 (never drawn)
+    for (let i = 1; i <= maxMainNumber; i++) {
       lastDraw[i] = -1
     }
     
     // Find last occurrence (iterate from newest to oldest)
     draws.forEach((draw, index) => {
       draw.numbers.forEach(num => {
-        if (num >= 1 && num <= 50 && lastDraw[num] === -1) {
+        if (num >= 1 && num <= maxMainNumber && lastDraw[num] === -1) {
           lastDraw[num] = index
         }
       })
     })
     
     return lastDraw
-  }, [draws])
+  }, [draws, maxMainNumber])
 
   // Calculate last draw index for euro numbers (0 = most recent)
   const euroNumbersLastDraw = useMemo(() => {
     const lastDraw: Record<number, number> = {}
+    
+    if (!hasEuroNumbers) return lastDraw
     
     // Initialize all numbers 1-12 with -1 (never drawn)
     for (let i = 1; i <= 12; i++) {
@@ -87,15 +97,17 @@ export default function FrequencyAnalysis({ draws }: FrequencyAnalysisProps): JS
     
     // Find last occurrence (iterate from newest to oldest)
     draws.forEach((draw, index) => {
-      draw.euroNumbers.forEach(num => {
-        if (num >= 1 && num <= 12 && lastDraw[num] === -1) {
-          lastDraw[num] = index
-        }
-      })
+      if (draw.euroNumbers) {
+        draw.euroNumbers.forEach(num => {
+          if (num >= 1 && num <= 12 && lastDraw[num] === -1) {
+            lastDraw[num] = index
+          }
+        })
+      }
     })
     
     return lastDraw
-  }, [draws])
+  }, [draws, hasEuroNumbers])
 
   // Get min and max frequencies for color scaling
   const mainNumbersStats = useMemo(() => {
@@ -216,7 +228,7 @@ export default function FrequencyAnalysis({ draws }: FrequencyAnalysisProps): JS
   return (
     <div className="frequency-analysis">
       <div className="frequency-section">
-        <h2>Main Numbers Frequency (1-50)</h2>
+        <h2>Main Numbers Frequency (1-{maxMainNumber})</h2>
         <p className="frequency-description">
           Total draws analyzed: {draws.length}
         </p>
@@ -232,25 +244,27 @@ export default function FrequencyAnalysis({ draws }: FrequencyAnalysisProps): JS
         </div>
       </div>
 
-      <div className="frequency-section">
-        <h2>Euro Numbers Frequency (1-12)</h2>
-        <p className="frequency-description">
-          Total draws analyzed: {draws.length}
-        </p>
-        <div className="frequency-grid euro-numbers-grid">
-          {Object.entries(euroNumbersFrequency).map(([num, freq]) =>
-            renderNumberCell(
-              parseInt(num),
-              freq,
-              euroNumbersStats.min,
-              euroNumbersStats.max
-            )
-          )}
+      {hasEuroNumbers && (
+        <div className="frequency-section">
+          <h2>Euro Numbers Frequency (1-12)</h2>
+          <p className="frequency-description">
+            Total draws analyzed: {draws.length}
+          </p>
+          <div className="frequency-grid euro-numbers-grid">
+            {Object.entries(euroNumbersFrequency).map(([num, freq]) =>
+              renderNumberCell(
+                parseInt(num),
+                freq,
+                euroNumbersStats.min,
+                euroNumbersStats.max
+              )
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="frequency-section">
-        <h2>Main Numbers - Last Appearance (1-50)</h2>
+        <h2>Main Numbers - Last Appearance (1-{maxMainNumber})</h2>
         <p className="frequency-description">
           Shows how many draws ago each number was last drawn (0 = most recent draw)
         </p>
@@ -266,22 +280,24 @@ export default function FrequencyAnalysis({ draws }: FrequencyAnalysisProps): JS
         </div>
       </div>
 
-      <div className="frequency-section">
-        <h2>Euro Numbers - Last Appearance (1-12)</h2>
-        <p className="frequency-description">
-          Shows how many draws ago each number was last drawn (0 = most recent draw)
-        </p>
-        <div className="frequency-grid euro-numbers-grid">
-          {Object.entries(euroNumbersLastDraw).map(([num, lastDraw]) =>
-            renderRecencyCell(
-              parseInt(num),
-              lastDraw,
-              euroNumbersLastDrawStats.min,
-              euroNumbersLastDrawStats.max
-            )
-          )}
+      {hasEuroNumbers && (
+        <div className="frequency-section">
+          <h2>Euro Numbers - Last Appearance (1-12)</h2>
+          <p className="frequency-description">
+            Shows how many draws ago each number was last drawn (0 = most recent draw)
+          </p>
+          <div className="frequency-grid euro-numbers-grid">
+            {Object.entries(euroNumbersLastDraw).map(([num, lastDraw]) =>
+              renderRecencyCell(
+                parseInt(num),
+                lastDraw,
+                euroNumbersLastDrawStats.min,
+                euroNumbersLastDrawStats.max
+              )
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="frequency-legend">
         <h3>Color Legend</h3>

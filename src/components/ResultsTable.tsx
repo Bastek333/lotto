@@ -3,7 +3,7 @@ import React from 'react'
 type Draw = {
   drawDate: string
   numbers: number[]
-  euroNumbers: number[]
+  euroNumbers?: number[]
   jackpot?: string
   jackpotAmount?: string
 }
@@ -18,6 +18,8 @@ function formatDate(d: string): string {
 }
 
 export default function ResultsTable({ draws }: { draws: Draw[] }): JSX.Element {
+  const hasEuroNumbers = draws.some(d => d.euroNumbers && d.euroNumbers.length > 0)
+  
   return (
     <div className="results">
       <table>
@@ -25,8 +27,8 @@ export default function ResultsTable({ draws }: { draws: Draw[] }): JSX.Element 
           <tr>
             <th>Draw #</th>
             <th>Date</th>
-            <th>Main Numbers (5)</th>
-            <th>Euro Numbers (2)</th>
+            <th>Main Numbers ({hasEuroNumbers ? '5' : '6'})</th>
+            {hasEuroNumbers && <th>Euro Numbers (2)</th>}
           </tr>
         </thead>
         <tbody>
@@ -41,13 +43,15 @@ export default function ResultsTable({ draws }: { draws: Draw[] }): JSX.Element 
                   <span style={{ color: '#999' }}>No data</span>
                 )}
               </td>
-              <td>
-                {d.euroNumbers.length > 0 ? (
-                  <span className="euro-numbers">{d.euroNumbers.join(', ')}</span>
-                ) : (
-                  <span style={{ color: '#999' }}>No data</span>
-                )}
-              </td>
+              {hasEuroNumbers && (
+                <td>
+                  {d.euroNumbers && d.euroNumbers.length > 0 ? (
+                    <span className="euro-numbers">{d.euroNumbers.join(', ')}</span>
+                  ) : (
+                    <span style={{ color: '#999' }}>No data</span>
+                  )}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
