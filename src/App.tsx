@@ -207,7 +207,7 @@ export default function App(): JSX.Element {
           setTimeout(() => fetchIncompleteDraws(selectedGame), 100)
         }
 
-        const incrementalStartDate = serverState.lastFetchedAt || getMostRecentDrawDate(normalizedServerDraws) || getMostRecentDrawDate(normalizedCachedDraws) || undefined
+        const incrementalStartDate = getMostRecentDrawDate(normalizedServerDraws) || getMostRecentDrawDate(normalizedCachedDraws) || undefined
         const hasServerBaseline = normalizedServerDraws.length > 0 || normalizedCachedDraws.length > 0
 
         if (hasServerBaseline) {
@@ -224,11 +224,9 @@ export default function App(): JSX.Element {
           setData(mergedDraws)
           setDataSource(incrementalDraws.length > 0 ? 'api-live' : (serverState.draws.length > 0 ? 'server-json' : 'local-cache'))
           setLastRefreshAt(new Date().toISOString())
-          if (incrementalDraws.length > 0) {
-            const saved = await persistCurrentGameDraws(selectedGame)
-            if (saved) {
-              setLastServerSaveAt(new Date().toISOString())
-            }
+          const saved = await persistCurrentGameDraws(selectedGame)
+          if (saved) {
+            setLastServerSaveAt(new Date().toISOString())
           }
           return
         }
@@ -744,11 +742,11 @@ export default function App(): JSX.Element {
           </div>
           <button
             className="tab"
-            onClick={() => fetchData(true)}
+                onClick={() => fetchData(false)}
             disabled={loading}
             style={{ marginLeft: 'auto', opacity: loading ? 0.5 : 1 }}
           >
-            {loading ? 'Refetching...' : '🔄 Refetch'}
+                {loading ? 'Checking...' : '🔄 Check latest'}
           </button>
         </div>
       </header>
@@ -767,7 +765,7 @@ export default function App(): JSX.Element {
             <p style={{ marginTop: '10px', fontSize: '0.85em', fontStyle: 'italic' }}>
               Check the browser console (F12) for detailed error information.
             </p>
-            <button onClick={() => fetchData(true)} style={{ marginTop: '10px' }}>
+            <button onClick={() => fetchData(false)} style={{ marginTop: '10px' }}>
               Try Again
             </button>
           </div>
