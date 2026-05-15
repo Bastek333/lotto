@@ -33,3 +33,4 @@ jobs:
           local-dir: ./dist/
           server-dir: /lottery-statistics/
           dangerous-clean-slate: false
+
