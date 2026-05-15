@@ -33,6 +33,8 @@ export default function NextDrawPrediction({ draws }: Props): JSX.Element {
   // Get latest draw and previous draw
   const latestDraw = draws[0]
   const previousDraw = draws.length > 1 ? draws[1] : null
+  const latestEuroNumbers = latestDraw?.euroNumbers ?? []
+  const previousEuroNumbers = previousDraw?.euroNumbers ?? []
   
   // Detect game type
   const hasEuroNumbers = draws.some(d => d.euroNumbers && d.euroNumbers.length > 0)
@@ -143,19 +145,25 @@ export default function NextDrawPrediction({ draws }: Props): JSX.Element {
   // Analyze euro numbers: same logic for euro numbers
   const euroNumbersAnalysis = React.useMemo(() => {
     const analysis: NextNumberAnalysis[] = []
+    const latestEuroNumbers = latestDraw.euroNumbers ?? []
+    if (latestEuroNumbers.length === 0) {
+      return analysis
+    }
     
-    latestDraw.euroNumbers.forEach(currentNum => {
+    latestEuroNumbers.forEach(currentNum => {
       const followersMap: { [key: number]: number } = {}
       
       // Go through historical draws
       for (let i = 1; i < draws.length; i++) {
         const previousDraw = draws[i]
         const nextDraw = draws[i - 1]
+        const previousEuroNumbers = previousDraw.euroNumbers ?? []
+        const nextEuroNumbers = nextDraw.euroNumbers ?? []
         
         // Check if currentNum was in this historical draw
-        if (previousDraw.euroNumbers.includes(currentNum)) {
+        if (previousEuroNumbers.includes(currentNum)) {
           // Find the closest number in the next draw
-          const closest = findClosestNumber(currentNum, nextDraw.euroNumbers)
+          const closest = findClosestNumber(currentNum, nextEuroNumbers)
           if (closest) {
             followersMap[closest.number] = (followersMap[closest.number] || 0) + 1
           }
@@ -239,15 +247,17 @@ export default function NextDrawPrediction({ draws }: Props): JSX.Element {
 
     // Analyze euro numbers from previous draw
     const prevEuroAnalysis: NextNumberAnalysis[] = []
-    previousDraw.euroNumbers.forEach(currentNum => {
+    previousEuroNumbers.forEach(currentNum => {
       const followersMap: { [key: number]: number } = {}
       
       for (let i = 2; i < draws.length; i++) {
         const historicalDraw = draws[i]
         const followingDraw = draws[i - 1]
+        const historicalEuroNumbers = historicalDraw.euroNumbers ?? []
+        const followingEuroNumbers = followingDraw.euroNumbers ?? []
         
-        if (historicalDraw.euroNumbers.includes(currentNum)) {
-          const closest = findClosestNumber(currentNum, followingDraw.euroNumbers)
+        if (historicalEuroNumbers.includes(currentNum)) {
+          const closest = findClosestNumber(currentNum, followingEuroNumbers)
           if (closest) {
             followersMap[closest.number] = (followersMap[closest.number] || 0) + 1
           }
@@ -277,7 +287,7 @@ export default function NextDrawPrediction({ draws }: Props): JSX.Element {
 
     // Calculate matches
     const mainMatches = prevPredictedMain.filter(num => latestDraw.numbers.includes(num))
-    const euroMatches = prevPredictedEuro.filter(num => latestDraw.euroNumbers.includes(num))
+  const euroMatches = prevPredictedEuro.filter(num => latestEuroNumbers.includes(num))
 
     return {
       previousDraw,
@@ -288,7 +298,7 @@ export default function NextDrawPrediction({ draws }: Props): JSX.Element {
       mainMatchCount: mainMatches.length,
       euroMatchCount: euroMatches.length
     }
-  }, [draws, previousDraw, latestDraw])
+  }, [draws, previousDraw, previousEuroNumbers, latestDraw, latestEuroNumbers])
 
 
   return (
@@ -403,7 +413,7 @@ export default function NextDrawPrediction({ draws }: Props): JSX.Element {
             <div className="euro-numbers-group">
               <span className="label">Euro Numbers:</span>
               <div className="number-balls">
-                {latestDraw.euroNumbers.map((num, idx) => (
+                {latestEuroNumbers.map((num, idx) => (
                   <span key={idx} className="number-ball euro">{num}</span>
                 ))}
               </div>
@@ -466,7 +476,7 @@ export default function NextDrawPrediction({ draws }: Props): JSX.Element {
                   <div className="euro-numbers-group">
                     <span className="label">Euro Numbers:</span>
                     <div className="number-balls">
-                      {previousDrawPrediction.previousDraw.euroNumbers.map((num, idx) => (
+                      {(previousDrawPrediction.previousDraw.euroNumbers ?? []).map((num, idx) => (
                         <span key={idx} className="number-ball euro">{num}</span>
                       ))}
                     </div>
@@ -541,7 +551,7 @@ export default function NextDrawPrediction({ draws }: Props): JSX.Element {
                   <div className="euro-numbers-group">
                     <span className="label">Euro Numbers:</span>
                     <div className="number-balls">
-                      {latestDraw.euroNumbers.map((num, idx) => {
+                      {latestEuroNumbers.map((num, idx) => {
                         const wasPredicted = previousDrawPrediction.euroMatches.includes(num)
                         return (
                           <span 

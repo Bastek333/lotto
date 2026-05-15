@@ -90,13 +90,13 @@ export default function CombinationAnalysis({ draws }: CombinationAnalysisProps)
     }> = []
     
     draws.forEach((draw) => {
-      const drawNumbers = isEuro ? draw.euroNumbers : draw.numbers
+      const drawNumbers = isEuro ? (draw.euroNumbers ?? []) : draw.numbers
       if (numbers.every(num => drawNumbers.includes(num))) {
         occurrenceDates.push(draw.drawDate)
         fullCombinations.push({
           drawDate: draw.drawDate,
           mainNumbers: [...draw.numbers].sort((a, b) => a - b),
-          euroNumbers: [...draw.euroNumbers].sort((a, b) => a - b)
+          euroNumbers: [...(draw.euroNumbers ?? [])].sort((a, b) => a - b)
         })
       }
     })
@@ -442,7 +442,7 @@ export default function CombinationAnalysis({ draws }: CombinationAnalysisProps)
     const pairMap = new Map<string, { count: number; lastDate: string; dates: string[] }>()
 
     draws.forEach((draw) => {
-      if (draw.euroNumbers.length < 2) return
+      if (!draw.euroNumbers || draw.euroNumbers.length < 2) return
       
       const [num1, num2] = [...draw.euroNumbers].sort((a, b) => a - b)
       const key = `${num1},${num2}`

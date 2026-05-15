@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import ResultsTable from './components/ResultsTable'
 import FrequencyAnalysis from './components/FrequencyAnalysis'
 import CombinationAnalysis from './components/CombinationAnalysis'
@@ -56,6 +56,7 @@ export default function App(): JSX.Element {
   const [rangeTo, setRangeTo] = useState<number>(0)
   const [optimalRange, setOptimalRange] = useState<{from: number, to: number, score: number, algorithm: string} | null>(null)
   const [isPredictionsMenuOpen, setIsPredictionsMenuOpen] = useState<boolean>(false)
+  const activeGameRef = useRef<GameType>(gameType)
 
   const predictionTabs: Array<{ key: TabType; label: string }> = [
     { key: 'prediction', label: '🔮 Next Draw Prediction' },
@@ -69,16 +70,16 @@ export default function App(): JSX.Element {
   const isPredictionTabActive = predictionTabs.some(tab => tab.key === activeTab)
 
   // Helper functions to get the right API based on game type
-  const getAllCachedDraws = () => {
-    return gameType === 'eurojackpot' ? getAllCachedEuroJackpotDraws() : getAllCachedLottoDraws()
+  const getAllCachedDraws = (selectedGame: GameType = gameType) => {
+    return selectedGame === 'eurojackpot' ? getAllCachedEuroJackpotDraws() : getAllCachedLottoDraws()
   }
 
-  const getIncompleteCachedDates = () => {
-    return gameType === 'eurojackpot' ? getIncompleteEuroJackpotDates() : getIncompleteLottoDates()
+  const getIncompleteCachedDates = (selectedGame: GameType = gameType) => {
+    return selectedGame === 'eurojackpot' ? getIncompleteEuroJackpotDates() : getIncompleteLottoDates()
   }
 
-  const clearCurrentGameCache = () => {
-    if (gameType === 'eurojackpot') {
+  const clearCurrentGameCache = (selectedGame: GameType = gameType) => {
+    if (selectedGame === 'eurojackpot') {
       clearEuroJackpotDrawsCache()
       return
     }
@@ -86,26 +87,26 @@ export default function App(): JSX.Element {
     clearLottoDrawsCache()
   }
 
-  const persistCurrentGameDraws = async () => {
+  const persistCurrentGameDraws = async (selectedGame: GameType = gameType) => {
     try {
-      if (gameType === 'eurojackpot') {
+      if (selectedGame === 'eurojackpot') {
         await saveEuroJackpotDrawsToBackend(false)
       } else {
         await saveLottoDrawsToBackend(false)
       }
     } catch (error) {
-      console.warn(`Failed to persist ${gameType} draws to backend:`, error)
+      console.warn(`Failed to persist ${selectedGame} draws to backend:`, error)
     }
   }
 
-  const isLikelyValidDataset = (draws: Draw[]) => {
+  const isLikelyValidDataset = (draws: Draw[], selectedGame: GameType = gameType) => {
     if (draws.length < 50) {
       return false
     }
 
     return draws.every(draw => {
-      const hasMainNumbers = Array.isArray(draw.numbers) && draw.numbers.length === (gameType === 'eurojackpot' ? 5 : 6)
-      const hasExpectedEuroNumbers = gameType === 'eurojackpot'
+      const hasMainNumbers = Array.isArray(draw.numbers) && draw.numbers.length === (selectedGame === 'eurojackpot' ? 5 : 6)
+      const hasExpectedEuroNumbers = selectedGame === 'eurojackpot'
         ? Array.isArray(draw.euroNumbers) && draw.euroNumbers.length === 2
         : !draw.euroNumbers || draw.euroNumbers.length === 0
 
@@ -113,67 +114,73 @@ export default function App(): JSX.Element {
     })
   }
 
-  const fetchResults = async (refetchIncompleteDatesOnly: boolean) => {
-    return gameType === 'eurojackpot' 
+  const fetchResults = async (refetchIncompleteDatesOnly: boolean, selectedGame: GameType = gameType) => {
+    return selectedGame === 'eurojackpot' 
       ? await fetchEuroJackpotResults(refetchIncompleteDatesOnly)
       : await fetchLottoResults(refetchIncompleteDatesOnly)
   }
 
+  const normalizeDrawsForGame = (rawDraws: Array<Draw & { jackpotAmount?: string | number }>, selectedGame: GameType): Draw[] => {
+    return rawDraws.map(draw => ({
+      drawDate: draw.drawDate,
+      numbers: draw.numbers,
+      euroNumbers: selectedGame === 'eurojackpot' ? draw.euroNumbers : undefined,
+      jackpot: draw.jackpot,
+      jackpotAmount: draw.jackpotAmount?.toString()
+    }))
+  }
+
   // Function to fetch data from API
-  const fetchData = async (forceRefetch: boolean = false) => {
+  const fetchData = async (forceRefetch: boolean = false, selectedGame: GameType = gameType) => {
     setLoading(true)
     setError(null)
     
     try {
       // First, load cached data immediately (unless forcing refetch)
       if (!forceRefetch) {
-        const cachedDraws = getAllCachedDraws()
-        const normalizedCachedDraws = cachedDraws.map(d => ({
-          drawDate: d.drawDate,
-          numbers: d.numbers,
-          euroNumbers: gameType === 'eurojackpot' ? (d as any).euroNumbers : undefined,
-          jackpot: d.jackpot,
-          jackpotAmount: d.jackpotAmount?.toString()
-        }))
+        const cachedDraws = getAllCachedDraws(selectedGame)
+        const normalizedCachedDraws = normalizeDrawsForGame(cachedDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
 
-        if (cachedDraws.length > 0 && isLikelyValidDataset(normalizedCachedDraws)) {
+        if (cachedDraws.length > 0 && isLikelyValidDataset(normalizedCachedDraws, selectedGame)) {
           console.log(`Loaded ${cachedDraws.length} draws from cache`)
+          if (activeGameRef.current !== selectedGame) {
+            return
+          }
           setData(normalizedCachedDraws)
           
           // Check for incomplete draws
-          const incompleteDates = getIncompleteCachedDates()
+          const incompleteDates = getIncompleteCachedDates(selectedGame)
           if (incompleteDates.length > 0) {
             console.log(`Found ${incompleteDates.length} draws with missing numbers, refetching those dates...`)
             // Refetch only incomplete dates in the background
-            setTimeout(() => fetchIncompleteDraws(), 100)
+            setTimeout(() => fetchIncompleteDraws(selectedGame), 100)
             return
           }
         } else if (cachedDraws.length > 0) {
-          console.warn(`Ignoring invalid ${gameType} cache dataset (${cachedDraws.length} draws)`)
-          clearCurrentGameCache()
+          console.warn(`Ignoring invalid ${selectedGame} cache dataset (${cachedDraws.length} draws)`)
+          clearCurrentGameCache(selectedGame)
         }
       }
       
       // Fetch from API (full refetch)
-      const gameName = gameType === 'eurojackpot' ? 'EuroJackpot' : 'Lotto'
+      const gameName = selectedGame === 'eurojackpot' ? 'EuroJackpot' : 'Lotto'
       console.log(forceRefetch ? `Force refetching all ${gameName} data...` : `Checking for updated ${gameName} data...`)
-      const apiDraws = await fetchResults(false)
-      
-      const draws = apiDraws.map(d => ({
-        drawDate: d.drawDate,
-        numbers: d.numbers,
-        euroNumbers: gameType === 'eurojackpot' ? (d as any).euroNumbers : undefined,
-        jackpot: d.jackpot,
-        jackpotAmount: d.jackpotAmount?.toString()
-      }))
+      const apiDraws = await fetchResults(false, selectedGame)
+      const draws = normalizeDrawsForGame(apiDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
 
       console.log(`Loaded ${draws.length} draws (updated from API)`)
+      if (activeGameRef.current !== selectedGame) {
+        return
+      }
       setData(draws)
-      await persistCurrentGameDraws()
+      await persistCurrentGameDraws(selectedGame)
     } catch (e: any) {
-      const gameName = gameType === 'eurojackpot' ? 'EuroJackpot' : 'Lotto'
+      const gameName = selectedGame === 'eurojackpot' ? 'EuroJackpot' : 'Lotto'
       console.error('Failed to load real results', e)
-      const cachedDraws = getAllCachedDraws()
+      const cachedDraws = getAllCachedDraws(selectedGame)
+      if (activeGameRef.current !== selectedGame) {
+        return
+      }
       if (cachedDraws.length === 0) {
         // Only show error if we don't have cached data
         setError(e.message || `Failed to fetch real ${gameName} data. Please try again later.`)
@@ -185,22 +192,18 @@ export default function App(): JSX.Element {
   }
 
   // Function to fetch only incomplete draws
-  const fetchIncompleteDraws = async () => {
+  const fetchIncompleteDraws = async (selectedGame: GameType = gameType) => {
     try {
       console.log('Refetching incomplete draws only...')
-      const apiDraws = await fetchResults(true)
-      
-      const draws = apiDraws.map(d => ({
-        drawDate: d.drawDate,
-        numbers: d.numbers,
-        euroNumbers: gameType === 'eurojackpot' ? (d as any).euroNumbers : undefined,
-        jackpot: d.jackpot,
-        jackpotAmount: d.jackpotAmount?.toString()
-      }))
+      const apiDraws = await fetchResults(true, selectedGame)
+      const draws = normalizeDrawsForGame(apiDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
 
       console.log(`Updated ${draws.length} draws with complete data`)
+      if (activeGameRef.current !== selectedGame) {
+        return
+      }
       setData(draws)
-      await persistCurrentGameDraws()
+      await persistCurrentGameDraws(selectedGame)
     } catch (e: any) {
       console.error('Failed to refetch incomplete draws', e)
       // Don't show error, keep existing data
@@ -334,29 +337,33 @@ export default function App(): JSX.Element {
     }
   }, [data, drawsCount, useRange, rangeFrom, rangeTo])
 
+  const resultsViewKey = filteredDraws && filteredDraws.length > 0
+    ? `${gameType}-${filteredDraws[0].drawDate}-${filteredDraws.length}`
+    : `${gameType}-empty`
+
   useEffect(() => {
-    let mounted = true;
+    activeGameRef.current = gameType
+  }, [gameType])
+
+  useEffect(() => {
     // Reset drawsCount and rangeTo so new game data is always shown fully
+    activeGameRef.current = gameType
+    setData(null)
     setDrawsCount(0);
     setRangeTo(0);
     // Check if there's cached data
-    const cachedDraws = getAllCachedDraws();
-    const normalizedCachedDraws = cachedDraws.map(d => ({
-      drawDate: d.drawDate,
-      numbers: d.numbers,
-      euroNumbers: gameType === 'eurojackpot' ? (d as any).euroNumbers : undefined,
-      jackpot: d.jackpot,
-      jackpotAmount: d.jackpotAmount?.toString()
-    }))
+    const selectedGame = gameType
+    const cachedDraws = getAllCachedDraws(selectedGame);
+    const normalizedCachedDraws = normalizeDrawsForGame(cachedDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
 
-    if (cachedDraws.length === 0 || !isLikelyValidDataset(normalizedCachedDraws)) {
+    if (cachedDraws.length === 0 || !isLikelyValidDataset(normalizedCachedDraws, selectedGame)) {
       if (cachedDraws.length > 0) {
-        console.warn(`Clearing invalid ${gameType} cache before reload`)
-        clearCurrentGameCache()
+        console.warn(`Clearing invalid ${selectedGame} cache before reload`)
+        clearCurrentGameCache(selectedGame)
       }
 
       // Try to fetch from server file first
-      const gameName = gameType === 'eurojackpot' ? 'eurojackpot' : 'lotto';
+      const gameName = selectedGame === 'eurojackpot' ? 'eurojackpot' : 'lotto';
       fetch(`/api/draws?gameType=${gameName}`)
         .then(async (res) => {
           if (!res.ok) throw new Error('No draws file on server');
@@ -364,47 +371,41 @@ export default function App(): JSX.Element {
         })
         .then((serverDraws: Array<Draw & { jackpotAmount?: string | number }>) => {
           const normalizedServerDraws = Array.isArray(serverDraws)
-            ? serverDraws.map((d: Draw & { jackpotAmount?: string | number }) => ({
-                drawDate: d.drawDate,
-                numbers: d.numbers,
-                euroNumbers: gameType === 'eurojackpot' ? d.euroNumbers : undefined,
-                jackpot: d.jackpot,
-                jackpotAmount: d.jackpotAmount?.toString()
-              }))
+            ? normalizeDrawsForGame(serverDraws, selectedGame)
             : []
 
-          if (normalizedServerDraws.length > 0 && isLikelyValidDataset(normalizedServerDraws)) {
+          if (normalizedServerDraws.length > 0 && isLikelyValidDataset(normalizedServerDraws, selectedGame)) {
             // Save each draw to localStorage using the same cache key logic
-            const prefix = gameType === 'eurojackpot' ? 'eurojackpot_draws_cache_v1_' : 'lotto_draws_cache_v1_';
+            const prefix = selectedGame === 'eurojackpot' ? 'eurojackpot_draws_cache_v1_' : 'lotto_draws_cache_v1_';
             serverDraws.forEach((draw: Draw & { jackpotAmount?: string | number }) => {
               if (draw && draw.drawDate) {
                 const key = `${prefix}${draw.drawDate}`;
                 localStorage.setItem(key, JSON.stringify(draw));
               }
             });
+            if (activeGameRef.current !== selectedGame) {
+              return
+            }
             // Set state from loaded draws
             setData(normalizedServerDraws);
             setDrawsCount(serverDraws.length);
             setRangeTo(serverDraws.length);
             // After populating, fetchData will check for incomplete draws and update if needed
-            setTimeout(() => fetchData(false), 100);
+            setTimeout(() => fetchData(false, selectedGame), 100);
             return;
           } else {
-            console.warn(`Ignoring invalid ${gameType} server dataset`)
-            fetchData(false);
+            console.warn(`Ignoring invalid ${selectedGame} server dataset`)
+            fetchData(false, selectedGame);
           }
         })
         .catch(() => {
           // If error, fallback to API fetch
-          fetchData(false);
+          fetchData(false, selectedGame);
         });
     } else {
       // Fetch data (will check cache first if data exists)
-      fetchData(false);
+      fetchData(false, selectedGame);
     }
-    return () => {
-      mounted = false;
-    };
   }, [gameType]);
 
   // Set drawsCount and rangeTo to total data length when data loads
@@ -728,11 +729,11 @@ export default function App(): JSX.Element {
           </div>
         )}
         {filteredDraws && filteredDraws.length > 0 && (
-          <div>
+          <div key={resultsViewKey}>
             {activeTab === 'results' && (
               <>
                 <p className="info">✓ Showing {filteredDraws.length} most recent draws from official Lotto.pl API</p>
-                <ResultsTable draws={filteredDraws} />
+                <ResultsTable key={resultsViewKey} draws={filteredDraws} />
               </>
             )}
             {activeTab === 'frequency' && (

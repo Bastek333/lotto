@@ -95,13 +95,18 @@ function analyzeMainNumberOrderPatterns(recentDraws: Draw[], allDraws: Draw[], m
  * Analyze order patterns for euro numbers (1-12)
  */
 function analyzeEuroNumberOrderPatterns(recentDraws: Draw[], allDraws: Draw[]): OrderPatternScore[] {
+  const euroDraws = recentDraws.filter(draw => Array.isArray(draw.euroNumbers) && draw.euroNumbers.length >= 2)
+  if (euroDraws.length === 0) {
+    return []
+  }
+
   const scores: OrderPatternScore[] = []
   
   for (let num = 1; num <= 12; num++) {
-    const positionScore = calculateEuroPositionScore(num, recentDraws)
-    const gapPatternScore = calculateEuroGapScore(num, recentDraws)
-    const sequenceScore = calculateEuroSequenceScore(num, recentDraws)
-    const transitionScore = calculateEuroTransitionScore(num, recentDraws)
+    const positionScore = calculateEuroPositionScore(num, euroDraws)
+    const gapPatternScore = calculateEuroGapScore(num, euroDraws)
+    const sequenceScore = calculateEuroSequenceScore(num, euroDraws)
+    const transitionScore = calculateEuroTransitionScore(num, euroDraws)
     
     const totalOrderScore = 
       positionScore * 0.40 + 
@@ -116,7 +121,7 @@ function analyzeEuroNumberOrderPatterns(recentDraws: Draw[], allDraws: Draw[]): 
       sequenceScore,
       transitionScore,
       totalOrderScore,
-      preferredPosition: findEuroPreferredPosition(num, recentDraws)
+      preferredPosition: findEuroPreferredPosition(num, euroDraws)
     })
   }
   
@@ -350,7 +355,7 @@ function calculateEuroPositionScore(num: number, draws: Draw[]): number {
   let totalAppearances = 0
   
   draws.forEach(draw => {
-    const sorted = [...draw.euroNumbers].sort((a, b) => a - b)
+    const sorted = [...(draw.euroNumbers ?? [])].sort((a, b) => a - b)
     const index = sorted.indexOf(num)
     if (index !== -1) {
       positionAppearances[index]++
@@ -370,10 +375,12 @@ function calculateEuroPositionScore(num: number, draws: Draw[]): number {
  * Euro number gap score
  */
 function calculateEuroGapScore(num: number, draws: Draw[]): number {
+  if (draws.length === 0) return 0
+
   const gaps: number[] = []
   
   draws.forEach(draw => {
-    const sorted = [...draw.euroNumbers].sort((a, b) => a - b)
+    const sorted = [...(draw.euroNumbers ?? [])].sort((a, b) => a - b)
     if (sorted.length === 2 && sorted.includes(num)) {
       gaps.push(Math.abs(sorted[0] - sorted[1]))
     }
@@ -385,7 +392,7 @@ function calculateEuroGapScore(num: number, draws: Draw[]): number {
   const stdDev = calculateStdDev(gaps)
   
   // Check if number would create a similar gap with latest draw
-  const latestEuros = [...draws[0].euroNumbers].sort((a, b) => a - b)
+  const latestEuros = [...(draws[0].euroNumbers ?? [])].sort((a, b) => a - b)
   let matchScore = 0
   
   latestEuros.forEach(euro => {
@@ -402,10 +409,12 @@ function calculateEuroGapScore(num: number, draws: Draw[]): number {
  * Euro number sequence score
  */
 function calculateEuroSequenceScore(num: number, draws: Draw[]): number {
+  if (draws.length === 0) return 0
+
   let consecutiveCount = 0
   
   draws.forEach(draw => {
-    const sorted = [...draw.euroNumbers].sort((a, b) => a - b)
+    const sorted = [...(draw.euroNumbers ?? [])].sort((a, b) => a - b)
     if (sorted.length === 2) {
       // Check if they are consecutive
       if (Math.abs(sorted[0] - sorted[1]) === 1) {
@@ -417,7 +426,7 @@ function calculateEuroSequenceScore(num: number, draws: Draw[]): number {
   })
   
   // Check if latest draw suggests consecutive pattern
-  const latestEuros = [...draws[0].euroNumbers].sort((a, b) => a - b)
+  const latestEuros = [...(draws[0].euroNumbers ?? [])].sort((a, b) => a - b)
   let bonus = 0
   
   latestEuros.forEach(euro => {
@@ -433,10 +442,12 @@ function calculateEuroSequenceScore(num: number, draws: Draw[]): number {
  * Euro number transition score
  */
 function calculateEuroTransitionScore(num: number, draws: Draw[]): number {
+  if (draws.length === 0) return 0
+
   let appearanceCount = 0
   
   draws.slice(0, 10).forEach(draw => {
-    if (draw.euroNumbers.includes(num)) {
+    if (draw.euroNumbers?.includes(num)) {
       appearanceCount++
     }
   })
@@ -451,7 +462,7 @@ function findEuroPreferredPosition(num: number, draws: Draw[]): number {
   const positionCounts = [0, 0]
   
   draws.forEach(draw => {
-    const sorted = [...draw.euroNumbers].sort((a, b) => a - b)
+    const sorted = [...(draw.euroNumbers ?? [])].sort((a, b) => a - b)
     const index = sorted.indexOf(num)
     if (index !== -1) {
       positionCounts[index]++
