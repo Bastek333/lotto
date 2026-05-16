@@ -1,28 +1,4 @@
 /**
- * GET /api/draws?gameType=lotto|eurojackpot
- * Serve saved draws file for the requested game type
- */
-app.get('/api/draws', (req, res) => {
-  try {
-    const requestedGameType = String(req.query.gameType || 'eurojackpot').toLowerCase();
-    if (requestedGameType !== 'eurojackpot' && requestedGameType !== 'lotto') {
-      return res.status(400).json({ success: false, error: 'Invalid gameType' });
-    }
-    const gameType = requestedGameType;
-    const filename = gameType === 'eurojackpot' ? 'eurojackpot_draws.json' : 'lotto_draws.json';
-    const filepath = path.join(DATA_DIR, filename);
-    if (!fs.existsSync(filepath)) {
-      return res.status(404).json({ success: false, error: 'Draws file not found' });
-    }
-    const data = fs.readFileSync(filepath, 'utf8');
-    res.setHeader('Content-Type', 'application/json');
-    res.send(data);
-  } catch (error) {
-    console.error('Error serving draws file:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-/**
  * Lotto Data Server
  * Handles local data storage and server-side backups
  * Run with: node server.js
@@ -45,8 +21,21 @@ app.use(cors())
 app.use(express.json({ limit: '50mb' }))
 
 // Data directory for storing JSON files
-const DATA_DIR = path.join(__dirname, 'src', 'data')
+// Keep public/ as primary so dev saves update the same files used in production deploys.
+const DATA_DIR = path.join(__dirname, 'public')
+const LEGACY_DATA_DIR = path.join(__dirname, 'src', 'data')
 const BACKUP_DIR = path.join(__dirname, 'server-backups')
+
+function getGameFilename(gameType) {
+  return gameType === 'eurojackpot' ? 'eurojackpot_draws.json' : 'lotto_draws.json'
+}
+
+function getPrimaryAndFallbackPaths(filename) {
+  return {
+    primaryPath: path.join(DATA_DIR, filename),
+    fallbackPath: path.join(LEGACY_DATA_DIR, filename)
+  }
+}
 
 function getCompletenessScore(draw) {
   const mainCount = Array.isArray(draw?.numbers) ? draw.numbers.length : 0
@@ -98,6 +87,34 @@ if (!fs.existsSync(BACKUP_DIR)) {
 }
 
 /**
+ * GET /api/draws?gameType=lotto|eurojackpot
+ * Serve saved draws file for the requested game type
+ */
+app.get('/api/draws', (req, res) => {
+  try {
+    const requestedGameType = String(req.query.gameType || 'eurojackpot').toLowerCase()
+    if (requestedGameType !== 'eurojackpot' && requestedGameType !== 'lotto') {
+      return res.status(400).json({ success: false, error: 'Invalid gameType' })
+    }
+
+    const filename = getGameFilename(requestedGameType)
+    const { primaryPath, fallbackPath } = getPrimaryAndFallbackPaths(filename)
+    const filepath = fs.existsSync(primaryPath) ? primaryPath : fallbackPath
+
+    if (!fs.existsSync(filepath)) {
+      return res.status(404).json({ success: false, error: 'Draws file not found' })
+    }
+
+    const data = fs.readFileSync(filepath, 'utf8')
+    res.setHeader('Content-Type', 'application/json')
+    res.send(data)
+  } catch (error) {
+    console.error('Error serving draws file:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+/**
  * POST /api/save-draws
  * Save draw data to local project directory
  * Body: { gameType: 'eurojackpot' | 'lotto', draws: Array }
@@ -122,15 +139,19 @@ app.post('/api/save-draws', (req, res) => {
     }
 
     // Determine filename
-    const filename = gameType === 'eurojackpot' ? 'eurojackpot_draws.json' : 'lotto_draws.json'
-    const filepath = path.join(DATA_DIR, filename)
+    const filename = getGameFilename(gameType)
+    const { primaryPath, fallbackPath } = getPrimaryAndFallbackPaths(filename)
     const backupName = `${gameType}_draws_${new Date().toISOString().replace(/[:.]/g, '-')}.json`
     const backupPath = path.join(BACKUP_DIR, backupName)
 
+    const existingFilepath = fs.existsSync(primaryPath)
+      ? primaryPath
+      : (fs.existsSync(fallbackPath) ? fallbackPath : null)
+
     // Create backup of existing file if it exists
-    if (fs.existsSync(filepath)) {
+    if (existingFilepath) {
       try {
-        const existingData = fs.readFileSync(filepath, 'utf8')
+        const existingData = fs.readFileSync(existingFilepath, 'utf8')
         fs.writeFileSync(backupPath, existingData)
         console.log(`✓ Backup created: ${backupName}`)
       } catch (backupErr) {
@@ -138,20 +159,27 @@ app.post('/api/save-draws', (req, res) => {
       }
     }
 
-    const existingRaw = fs.existsSync(filepath) ? JSON.parse(fs.readFileSync(filepath, 'utf8')) : []
+    const existingRaw = existingFilepath ? JSON.parse(fs.readFileSync(existingFilepath, 'utf8')) : []
     const existingDraws = normalizeDrawCollection(existingRaw)
     const mergedDraws = mergeDrawsByDate(existingDraws, draws)
 
     // Write merged data
     const jsonData = JSON.stringify(mergedDraws, null, 2)
-    fs.writeFileSync(filepath, jsonData)
+    fs.writeFileSync(primaryPath, jsonData)
+
+    // Keep legacy path in sync for older tooling that still reads src/data.
+    try {
+      fs.writeFileSync(fallbackPath, jsonData)
+    } catch (legacyWriteError) {
+      console.warn('Warning: Could not sync legacy data path:', legacyWriteError.message)
+    }
 
     console.log(`✓ Saved ${mergedDraws.length} ${gameType} draws to ${filename} (incoming ${draws.length})`)
 
     res.json({
       success: true,
       message: `Saved ${mergedDraws.length} draws to ${filename}`,
-      filepath,
+      filepath: primaryPath,
       drawsCount: mergedDraws.length,
       merged: {
         existingCount: existingDraws.length,
@@ -178,30 +206,38 @@ app.get('/api/draws-status', (req, res) => {
     const status = {}
 
     // Check eurojackpot file
-    const eurojackpotPath = path.join(DATA_DIR, 'eurojackpot_draws.json')
+    const eurojackpotPrimaryPath = path.join(DATA_DIR, 'eurojackpot_draws.json')
+    const eurojackpotFallbackPath = path.join(LEGACY_DATA_DIR, 'eurojackpot_draws.json')
+    const eurojackpotPath = fs.existsSync(eurojackpotPrimaryPath) ? eurojackpotPrimaryPath : eurojackpotFallbackPath
     if (fs.existsSync(eurojackpotPath)) {
       const data = JSON.parse(fs.readFileSync(eurojackpotPath, 'utf8'))
+      const draws = normalizeDrawCollection(data)
       const stats = fs.statSync(eurojackpotPath)
       status.eurojackpot = {
         exists: true,
-        count: data.length,
+        count: draws.length,
         size: stats.size,
-        lastModified: stats.mtime
+        lastModified: stats.mtime,
+        filepath: eurojackpotPath
       }
     } else {
       status.eurojackpot = { exists: false, count: 0 }
     }
 
     // Check lotto file
-    const lottoPath = path.join(DATA_DIR, 'lotto_draws.json')
+    const lottoPrimaryPath = path.join(DATA_DIR, 'lotto_draws.json')
+    const lottoFallbackPath = path.join(LEGACY_DATA_DIR, 'lotto_draws.json')
+    const lottoPath = fs.existsSync(lottoPrimaryPath) ? lottoPrimaryPath : lottoFallbackPath
     if (fs.existsSync(lottoPath)) {
       const data = JSON.parse(fs.readFileSync(lottoPath, 'utf8'))
+      const draws = normalizeDrawCollection(data)
       const stats = fs.statSync(lottoPath)
       status.lotto = {
         exists: true,
-        count: data.length,
+        count: draws.length,
         size: stats.size,
-        lastModified: stats.mtime
+        lastModified: stats.mtime,
+        filepath: lottoPath
       }
     } else {
       status.lotto = { exists: false, count: 0 }

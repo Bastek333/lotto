@@ -45,6 +45,12 @@ type GapBackfillStatus = {
   addedCount: number
 }
 
+type PersistSaveResult = {
+  success: boolean
+  filepath: string | null
+  message: string | null
+}
+
 type TabType = 'results' | 'frequency' | 'combinations' | 'checker' | 'prediction' | 'following' | 'improved' | 'advanced' | 'adaptive' | 'bignumber'
 
 export default function App(): JSX.Element {
@@ -68,6 +74,8 @@ export default function App(): JSX.Element {
   const [isPredictionsMenuOpen, setIsPredictionsMenuOpen] = useState<boolean>(false)
   const [dataSource, setDataSource] = useState<DataSource>('none')
   const [lastServerSaveAt, setLastServerSaveAt] = useState<string | null>(null)
+  const [lastServerSavePath, setLastServerSavePath] = useState<string | null>(null)
+  const [lastServerSaveMessage, setLastServerSaveMessage] = useState<string | null>(null)
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null)
   const [lastGapBackfill, setLastGapBackfill] = useState<GapBackfillStatus | null>(null)
   const activeGameRef = useRef<GameType>(gameType)
@@ -112,18 +120,40 @@ export default function App(): JSX.Element {
     }
   }
 
-  const persistCurrentGameDraws = async (drawsToSave: Draw[], selectedGame: GameType = gameType) => {
+  const getPersistedFilepath = (result: any): string | null => {
+    const directFilepath = typeof result?.filepath === 'string' ? result.filepath : null
+    const nestedFilepath = typeof result?.details?.saved?.filepath === 'string' ? result.details.saved.filepath : null
+    return directFilepath || nestedFilepath
+  }
+
+  const getPersistMessage = (result: any): string | null => {
+    return typeof result?.message === 'string' ? result.message : null
+  }
+
+  const persistCurrentGameDraws = async (drawsToSave: Draw[], selectedGame: GameType = gameType): Promise<PersistSaveResult> => {
     try {
       if (selectedGame === 'eurojackpot') {
         const result = await saveEuroJackpotDrawsToBackend(true, drawsToSave)
-        return Boolean(result?.success)
+        return {
+          success: Boolean(result?.success),
+          filepath: getPersistedFilepath(result),
+          message: getPersistMessage(result)
+        }
       } else {
         const result = await saveLottoDrawsToBackend(true, drawsToSave)
-        return Boolean(result?.success)
+        return {
+          success: Boolean(result?.success),
+          filepath: getPersistedFilepath(result),
+          message: getPersistMessage(result)
+        }
       }
     } catch (error) {
       console.warn(`Failed to persist ${selectedGame} draws to backend:`, error)
-      return false
+      return {
+        success: false,
+        filepath: null,
+        message: null
+      }
     }
   }
 
@@ -319,8 +349,10 @@ export default function App(): JSX.Element {
           setLastRefreshAt(new Date().toISOString())
           setLastGapBackfill(gapBackfillStatus)
           const saved = await persistCurrentGameDraws(mergedDraws, selectedGame)
-          if (saved) {
+          if (saved.success) {
             setLastServerSaveAt(new Date().toISOString())
+            setLastServerSavePath(saved.filepath)
+            setLastServerSaveMessage(saved.message)
           }
           return
         }
@@ -341,8 +373,10 @@ export default function App(): JSX.Element {
       setLastRefreshAt(new Date().toISOString())
       setLastGapBackfill(null)
       const saved = await persistCurrentGameDraws(draws, selectedGame)
-      if (saved) {
+      if (saved.success) {
         setLastServerSaveAt(new Date().toISOString())
+        setLastServerSavePath(saved.filepath)
+        setLastServerSaveMessage(saved.message)
       }
     } catch (e: any) {
       const gameName = selectedGame === 'eurojackpot' ? 'EuroJackpot' : 'Lotto'
@@ -386,8 +420,10 @@ export default function App(): JSX.Element {
       setDataSource('api-live')
       setLastRefreshAt(new Date().toISOString())
       const saved = await persistCurrentGameDraws(mergedDrawsForPersistence, selectedGame)
-      if (saved) {
+      if (saved.success) {
         setLastServerSaveAt(new Date().toISOString())
+        setLastServerSavePath(saved.filepath)
+        setLastServerSaveMessage(saved.message)
       }
     } catch (e: any) {
       console.error('Failed to refetch incomplete draws', e)
@@ -537,6 +573,8 @@ export default function App(): JSX.Element {
     setDrawsCount(0)
     setRangeTo(0)
     setLastGapBackfill(null)
+    setLastServerSavePath(null)
+    setLastServerSaveMessage(null)
 
     // Unified startup flow: server JSON first, then API refresh.
     fetchData(false, gameType)
@@ -713,7 +751,7 @@ export default function App(): JSX.Element {
               color: '#1d3a5f'
             }}
           >
-            <strong>Data status:</strong> source {statusSourceLabel} | loaded {formatStatusTime(lastRefreshAt)} | last server save {formatStatusTime(lastServerSaveAt)} | gap backfill {gapBackfillStatusLabel}
+            <strong>Data status:</strong> source {statusSourceLabel} | loaded {formatStatusTime(lastRefreshAt)} | last server save {formatStatusTime(lastServerSaveAt)} | file {lastServerSavePath || 'n/a'} | gap backfill {gapBackfillStatusLabel}{lastServerSaveMessage ? ` | save message: ${lastServerSaveMessage}` : ''}
           </div>
           <div className="draws-control">
             <label>
