@@ -228,6 +228,21 @@ export async function saveDrawsToBackend(uploadToServer: boolean = false, drawsT
   const draws = drawsToSave && drawsToSave.length > 0
     ? sortAndDeduplicate(normalizedDraws ?? [])
     : getAllCachedDraws()
+
+  // Guard against accidental dataset collapse (for example from malformed IDs).
+  if (drawsToSave && normalizedDraws) {
+    const inputCount = normalizedDraws.length
+    const outputCount = draws.length
+    const minCountForGuard = 50
+    const minRetentionRatio = 0.8
+    const retentionRatio = inputCount > 0 ? outputCount / inputCount : 1
+
+    if (inputCount >= minCountForGuard && retentionRatio < minRetentionRatio) {
+      const message = `Suspicious dedup drop detected for Lotto: ${inputCount} -> ${outputCount}. Save aborted to protect server data.`
+      console.error(message)
+      throw new Error(message)
+    }
+  }
   
   if (draws.length === 0) {
     console.warn('No draws to save')
@@ -574,10 +589,33 @@ async function fetchLottoBySpecificDate(drawDate: Date): Promise<LottoDraw | nul
  * Helper function to sort and remove duplicates
  */
 function sortAndDeduplicate(draws: LottoDraw[]): LottoDraw[] {
-  // Remove duplicates based on drawSystemId
-  const uniqueDraws = draws.filter((draw, index, self) =>
-    index === self.findIndex(d => d.drawSystemId === draw.drawSystemId)
-  )
+  const getCompletenessScore = (draw: LottoDraw): number => {
+    const mainCount = Array.isArray(draw.numbers) ? draw.numbers.length : 0
+    const hasPositiveSystemId = typeof draw.drawSystemId === 'number' && draw.drawSystemId > 0 ? 1 : 0
+    return (mainCount * 100) + hasPositiveSystemId
+  }
+
+  const uniqueByKey = new Map<string, LottoDraw>()
+  for (const draw of draws) {
+    const dateKey = toDateKey(draw.drawDate)
+    const mainKey = Array.isArray(draw.numbers) ? draw.numbers.join(',') : ''
+    const fallbackId = typeof draw.drawSystemId === 'number' ? draw.drawSystemId : 0
+    const dedupeKey = dateKey
+      ? `${dateKey}|${mainKey}`
+      : `id:${fallbackId}|${mainKey}`
+
+    const normalizedDraw: LottoDraw = {
+      ...draw,
+      drawDate: dateKey || draw.drawDate
+    }
+
+    const existing = uniqueByKey.get(dedupeKey)
+    if (!existing || getCompletenessScore(normalizedDraw) >= getCompletenessScore(existing)) {
+      uniqueByKey.set(dedupeKey, normalizedDraw)
+    }
+  }
+
+  const uniqueDraws = Array.from(uniqueByKey.values())
   
   // Sort by date descending (newest first)
   uniqueDraws.sort((a, b) => {

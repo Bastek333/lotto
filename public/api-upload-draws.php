@@ -78,6 +78,11 @@ $filepath = __DIR__ . '/' . $filename;
 $legacyFilepath = $legacyDrawsDataDir . '/' . $filename;
 $parentFilepath = dirname(__DIR__) . '/' . $filename;
 $writeCandidates = array_values(array_unique([$filepath, $legacyFilepath, $parentFilepath]));
+$combinedFilename = 'lottery_draws.json';
+$combinedPath = __DIR__ . '/' . $combinedFilename;
+$combinedLegacyPath = $legacyDrawsDataDir . '/' . $combinedFilename;
+$combinedParentPath = dirname(__DIR__) . '/' . $combinedFilename;
+$combinedWriteCandidates = array_values(array_unique([$combinedPath, $combinedLegacyPath, $combinedParentPath]));
 $backupName = $gameType . '_draws_' . str_replace([':', '-'], '', $timestamp) . '.json';
 $backupPath = $backupDir . '/' . $backupName;
 
@@ -186,6 +191,64 @@ function getFreshestExistingPath(array $paths): ?string {
     return $freshestPath;
 }
 
+function normalizeCombinedPayload($raw): array {
+    if (!is_array($raw)) {
+        return [
+            'meta' => [
+                'lastUpdatedAt' => date('c'),
+                'source' => 'unknown'
+            ],
+            'games' => [
+                'eurojackpot' => [
+                    'meta' => [
+                        'gameType' => 'eurojackpot',
+                        'lastFetchedAt' => null,
+                        'drawsCount' => 0,
+                        'source' => 'unknown'
+                    ],
+                    'draws' => []
+                ],
+                'lotto' => [
+                    'meta' => [
+                        'gameType' => 'lotto',
+                        'lastFetchedAt' => null,
+                        'drawsCount' => 0,
+                        'source' => 'unknown'
+                    ],
+                    'draws' => []
+                ]
+            ]
+        ];
+    }
+
+    if (!isset($raw['games']) || !is_array($raw['games'])) {
+        $raw['games'] = [];
+    }
+
+    foreach (['eurojackpot', 'lotto'] as $game) {
+        if (!isset($raw['games'][$game]) || !is_array($raw['games'][$game])) {
+            $raw['games'][$game] = [];
+        }
+        if (!isset($raw['games'][$game]['meta']) || !is_array($raw['games'][$game]['meta'])) {
+            $raw['games'][$game]['meta'] = [
+                'gameType' => $game,
+                'lastFetchedAt' => null,
+                'drawsCount' => 0,
+                'source' => 'unknown'
+            ];
+        }
+        if (!isset($raw['games'][$game]['draws']) || !is_array($raw['games'][$game]['draws'])) {
+            $raw['games'][$game]['draws'] = [];
+        }
+    }
+
+    if (!isset($raw['meta']) || !is_array($raw['meta'])) {
+        $raw['meta'] = [];
+    }
+
+    return $raw;
+}
+
 try {
     $existingPath = getFreshestExistingPath($writeCandidates);
 
@@ -232,6 +295,28 @@ try {
         }
     }
 
+    $combinedSavedPaths = [];
+    $existingCombinedPath = getFreshestExistingPath($combinedWriteCandidates);
+    $existingCombinedRaw = [];
+    if ($existingCombinedPath !== null && file_exists($existingCombinedPath)) {
+        $decodedCombined = json_decode(file_get_contents($existingCombinedPath), true);
+        if (is_array($decodedCombined)) {
+            $existingCombinedRaw = $decodedCombined;
+        }
+    }
+
+    $combinedPayload = normalizeCombinedPayload($existingCombinedRaw);
+    $combinedPayload['meta']['lastUpdatedAt'] = $timestamp;
+    $combinedPayload['meta']['source'] = $source;
+    $combinedPayload['games'][$gameType] = $payload;
+
+    $combinedJsonData = json_encode($combinedPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    foreach ($combinedWriteCandidates as $candidatePath) {
+        if (@file_put_contents($candidatePath, $combinedJsonData) !== false) {
+            $combinedSavedPaths[] = $candidatePath;
+        }
+    }
+
     if (count($savedPaths) > 0) {
         $response['success'] = true;
         $response['message'] = "Successfully saved {$gameType} draws to server";
@@ -239,6 +324,11 @@ try {
             'filepath' => $savedPaths[0],
             'mirroredPaths' => $savedPaths,
             'size' => strlen($jsonData)
+        ];
+        $response['details']['combinedSaved'] = [
+            'filename' => $combinedFilename,
+            'mirroredPaths' => $combinedSavedPaths,
+            'size' => strlen($combinedJsonData)
         ];
         $response['details']['merged'] = [
             'existingCount' => count($existingDraws),

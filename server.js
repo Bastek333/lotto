@@ -30,10 +30,52 @@ function getGameFilename(gameType) {
   return gameType === 'eurojackpot' ? 'eurojackpot_draws.json' : 'lotto_draws.json'
 }
 
+function getCombinedFilename() {
+  return 'lottery_draws.json'
+}
+
 function getPrimaryAndFallbackPaths(filename) {
   return {
     primaryPath: path.join(DATA_DIR, filename),
     fallbackPath: path.join(LEGACY_DATA_DIR, filename)
+  }
+}
+
+function getFreshestExistingPath(...paths) {
+  const existingPaths = paths.filter(p => fs.existsSync(p))
+  if (existingPaths.length === 0) {
+    return null
+  }
+
+  return existingPaths.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0]
+}
+
+function normalizeCombinedPayload(raw) {
+  const base = (raw && typeof raw === 'object') ? { ...raw } : {}
+  const games = (base.games && typeof base.games === 'object') ? { ...base.games } : {}
+
+  for (const gameType of ['eurojackpot', 'lotto']) {
+    const gameEntry = (games[gameType] && typeof games[gameType] === 'object') ? { ...games[gameType] } : {}
+    const gameMeta = (gameEntry.meta && typeof gameEntry.meta === 'object') ? { ...gameEntry.meta } : {
+      gameType,
+      lastFetchedAt: null,
+      drawsCount: 0,
+      source: 'unknown'
+    }
+    const gameDraws = normalizeDrawCollection(gameEntry)
+
+    games[gameType] = {
+      meta: gameMeta,
+      draws: gameDraws
+    }
+  }
+
+  return {
+    meta: {
+      lastUpdatedAt: base.meta?.lastUpdatedAt || new Date().toISOString(),
+      source: base.meta?.source || 'unknown'
+    },
+    games
   }
 }
 
@@ -123,13 +165,32 @@ app.get('/api/draws', (req, res) => {
 
     const filename = getGameFilename(requestedGameType)
     const { primaryPath, fallbackPath } = getPrimaryAndFallbackPaths(filename)
-    const filepath = fs.existsSync(primaryPath) ? primaryPath : fallbackPath
+    const combinedFilename = getCombinedFilename()
+    const { primaryPath: combinedPrimaryPath, fallbackPath: combinedFallbackPath } = getPrimaryAndFallbackPaths(combinedFilename)
 
-    if (!fs.existsSync(filepath)) {
+    const freshestPath = getFreshestExistingPath(primaryPath, fallbackPath, combinedPrimaryPath, combinedFallbackPath)
+
+    if (!freshestPath) {
       return res.status(404).json({ success: false, error: 'Draws file not found' })
     }
 
-    const data = fs.readFileSync(filepath, 'utf8')
+    const data = fs.readFileSync(freshestPath, 'utf8')
+    const decoded = JSON.parse(data)
+
+    if (decoded && typeof decoded === 'object' && decoded.games && decoded.games[requestedGameType]) {
+      const gamePayload = decoded.games[requestedGameType]
+      const draws = normalizeDrawCollection(gamePayload)
+      const lastFetchedAt = gamePayload.meta?.lastFetchedAt || new Date(fs.statSync(freshestPath).mtimeMs).toISOString()
+      return res.json({
+        meta: {
+          gameType: requestedGameType,
+          lastFetchedAt,
+          source: gamePayload.meta?.source || 'combined-server-json'
+        },
+        draws
+      })
+    }
+
     res.setHeader('Content-Type', 'application/json')
     res.send(data)
   } catch (error) {
@@ -198,12 +259,47 @@ app.post('/api/save-draws', (req, res) => {
       console.warn('Warning: Could not sync legacy data path:', legacyWriteError.message)
     }
 
+    // Keep a combined file with both games to simplify deployments that prefer one shared file.
+    const combinedFilename = getCombinedFilename()
+    const { primaryPath: combinedPrimaryPath, fallbackPath: combinedFallbackPath } = getPrimaryAndFallbackPaths(combinedFilename)
+    const existingCombinedPath = getFreshestExistingPath(combinedPrimaryPath, combinedFallbackPath)
+    let existingCombined = {}
+    if (existingCombinedPath) {
+      try {
+        existingCombined = JSON.parse(fs.readFileSync(existingCombinedPath, 'utf8'))
+      } catch (combinedReadError) {
+        console.warn('Warning: Could not parse combined file, recreating it:', combinedReadError.message)
+      }
+    }
+
+    const combinedPayload = normalizeCombinedPayload(existingCombined)
+    combinedPayload.meta.lastUpdatedAt = new Date().toISOString()
+    combinedPayload.meta.source = req.body.source || 'web-app'
+    combinedPayload.games[gameType] = {
+      meta: {
+        gameType,
+        lastFetchedAt: req.body.timestamp || new Date().toISOString(),
+        drawsCount: mergedDraws.length,
+        source: req.body.source || 'web-app'
+      },
+      draws: mergedDraws
+    }
+
+    const combinedJsonData = JSON.stringify(combinedPayload, null, 2)
+    fs.writeFileSync(combinedPrimaryPath, combinedJsonData)
+    try {
+      fs.writeFileSync(combinedFallbackPath, combinedJsonData)
+    } catch (combinedLegacyWriteError) {
+      console.warn('Warning: Could not sync legacy combined path:', combinedLegacyWriteError.message)
+    }
+
     console.log(`✓ Saved ${mergedDraws.length} ${gameType} draws to ${filename} (incoming ${draws.length})`)
 
     res.json({
       success: true,
       message: `Saved ${mergedDraws.length} draws to ${filename}`,
       filepath: primaryPath,
+      combinedFilepath: combinedPrimaryPath,
       drawsCount: mergedDraws.length,
       merged: {
         existingCount: existingDraws.length,

@@ -32,6 +32,7 @@ type DataSource = 'none' | 'server-json' | 'local-cache' | 'api-live'
 
 type Draw = {
   drawDate: string
+  drawSystemId?: number
   numbers: number[]
   euroNumbers?: number[]
   jackpot?: string
@@ -178,9 +179,10 @@ export default function App(): JSX.Element {
       : await fetchLottoResults(refetchIncompleteDatesOnly, startFromDate)
   }
 
-  const normalizeDrawsForGame = (rawDraws: Array<Draw & { jackpotAmount?: string | number }>, selectedGame: GameType): Draw[] => {
+  const normalizeDrawsForGame = (rawDraws: Array<Draw & { jackpotAmount?: string | number; drawSystemId?: number }>, selectedGame: GameType): Draw[] => {
     return rawDraws.map(draw => ({
       drawDate: draw.drawDate,
+      drawSystemId: draw.drawSystemId,
       numbers: draw.numbers,
       euroNumbers: selectedGame === 'eurojackpot' ? draw.euroNumbers : undefined,
       jackpot: draw.jackpot,

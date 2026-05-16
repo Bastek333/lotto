@@ -35,6 +35,10 @@ $filename = $gameType === 'eurojackpot' ? 'eurojackpot_draws.json' : 'lotto_draw
 $primaryPath = __DIR__ . '/' . $filename;
 $legacyPath = __DIR__ . '/data/' . $filename;
 $parentPath = dirname(__DIR__) . '/' . $filename;
+$combinedFilename = 'lottery_draws.json';
+$combinedPrimaryPath = __DIR__ . '/' . $combinedFilename;
+$combinedLegacyPath = __DIR__ . '/data/' . $combinedFilename;
+$combinedParentPath = dirname(__DIR__) . '/' . $combinedFilename;
 
 function getFreshestExistingPath(array $paths): ?string {
     $freshestPath = null;
@@ -59,20 +63,60 @@ function getFreshestExistingPath(array $paths): ?string {
     return $freshestPath;
 }
 
+function normalizeDrawCollection($raw): array {
+    if (is_array($raw) && isset($raw['draws']) && is_array($raw['draws'])) {
+        return $raw['draws'];
+    }
+    return is_array($raw) ? $raw : [];
+}
+
+function resolveGameDataFromCombined(array $combinedPayload, string $gameType): ?array {
+    if (!isset($combinedPayload['games']) || !is_array($combinedPayload['games'])) {
+        return null;
+    }
+
+    if (!isset($combinedPayload['games'][$gameType]) || !is_array($combinedPayload['games'][$gameType])) {
+        return null;
+    }
+
+    $gamePayload = $combinedPayload['games'][$gameType];
+    $draws = normalizeDrawCollection($gamePayload);
+    $meta = [];
+    if (isset($gamePayload['meta']) && is_array($gamePayload['meta'])) {
+        $meta = $gamePayload['meta'];
+    }
+
+    return [
+        'meta' => $meta,
+        'draws' => $draws
+    ];
+}
+
 $candidatePaths = array_values(array_unique([$primaryPath, $legacyPath, $parentPath]));
 $filepath = getFreshestExistingPath($candidatePaths);
+$combinedCandidatePaths = array_values(array_unique([$combinedPrimaryPath, $combinedLegacyPath, $combinedParentPath]));
+$combinedFilepath = getFreshestExistingPath($combinedCandidatePaths);
 
-if ($filepath === null || !file_exists($filepath)) {
+$selectedFilepath = $filepath;
+$useCombinedPayload = false;
+if ($combinedFilepath !== null && file_exists($combinedFilepath)) {
+    if ($selectedFilepath === null || @filemtime($combinedFilepath) > @filemtime($selectedFilepath)) {
+        $selectedFilepath = $combinedFilepath;
+        $useCombinedPayload = true;
+    }
+}
+
+if ($selectedFilepath === null || !file_exists($selectedFilepath)) {
     http_response_code(404);
     echo json_encode([
         'success' => false,
         'error' => 'Draws file not found',
-        'expected' => $candidatePaths
+        'expected' => array_values(array_unique(array_merge($candidatePaths, $combinedCandidatePaths)))
     ]);
     exit;
 }
 
-$data = file_get_contents($filepath);
+$data = file_get_contents($selectedFilepath);
 if ($data === false) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Cannot read draws file']);
@@ -87,8 +131,24 @@ if (!is_array($decoded)) {
     exit;
 }
 
+if ($useCombinedPayload) {
+    $resolved = resolveGameDataFromCombined($decoded, $gameType);
+    if ($resolved !== null && is_array($resolved['draws'])) {
+        $lastFetchedAt = $resolved['meta']['lastFetchedAt'] ?? date('c', filemtime($selectedFilepath));
+        echo json_encode([
+            'meta' => [
+                'gameType' => $gameType,
+                'lastFetchedAt' => $lastFetchedAt,
+                'source' => $resolved['meta']['source'] ?? 'combined-server-json'
+            ],
+            'draws' => $resolved['draws']
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+}
+
 if (isset($decoded['draws']) && is_array($decoded['draws'])) {
-    $lastFetchedAt = $decoded['meta']['lastFetchedAt'] ?? date('c', filemtime($filepath));
+    $lastFetchedAt = $decoded['meta']['lastFetchedAt'] ?? date('c', filemtime($selectedFilepath));
     echo json_encode([
         'meta' => [
             'gameType' => $gameType,
@@ -100,7 +160,7 @@ if (isset($decoded['draws']) && is_array($decoded['draws'])) {
     exit;
 }
 
-$lastFetchedAt = date('c', filemtime($filepath));
+$lastFetchedAt = date('c', filemtime($selectedFilepath));
 echo json_encode([
     'meta' => [
         'gameType' => $gameType,
