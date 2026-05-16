@@ -176,7 +176,25 @@ export default function App(): JSX.Element {
     return draws.length > 0 ? draws[draws.length - 1].drawDate : null
   }
 
-  const toDateKey = (dateValue: string): string => new Date(dateValue).toISOString().split('T')[0]
+  const toDateKey = (dateValue: string): string => {
+    const directDateMatch = dateValue.match(/^(\d{4}-\d{2}-\d{2})/)
+    if (directDateMatch) {
+      return directDateMatch[1]
+    }
+
+    const parsedDate = new Date(dateValue)
+    const year = parsedDate.getFullYear()
+    const month = `${parsedDate.getMonth() + 1}`.padStart(2, '0')
+    const day = `${parsedDate.getDate()}`.padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const dateToKey = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = `${date.getMonth() + 1}`.padStart(2, '0')
+    const day = `${date.getDate()}`.padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
 
   const isExpectedDrawDay = (date: Date, selectedGame: GameType): boolean => {
     const dayOfWeek = date.getDay()
@@ -208,7 +226,7 @@ export default function App(): JSX.Element {
 
     while (currentDate >= oldestDate) {
       if (isExpectedDrawDay(currentDate, selectedGame)) {
-        const dateKey = currentDate.toISOString().split('T')[0]
+        const dateKey = dateToKey(currentDate)
         if (!normalizedDateKeys.has(dateKey)) {
           return dateKey
         }
@@ -259,7 +277,9 @@ export default function App(): JSX.Element {
         const incompleteDates = getIncompleteCachedDates(selectedGame)
         if (incompleteDates.length > 0) {
           console.log(`Found ${incompleteDates.length} draws with missing numbers, refetching those dates in background...`)
-          setTimeout(() => fetchIncompleteDraws(selectedGame), 100)
+          setTimeout(() => {
+            void fetchIncompleteDraws(selectedGame)
+          }, 100)
         }
 
         const incrementalStartDate = getMostRecentDrawDate(normalizedServerDraws) || getMostRecentDrawDate(normalizedCachedDraws) || undefined
@@ -352,7 +372,13 @@ export default function App(): JSX.Element {
       if (activeGameRef.current !== selectedGame) {
         return
       }
-      setData(draws)
+      setData(previousDraws => {
+        if (!previousDraws || previousDraws.length === 0) {
+          return draws
+        }
+
+        return mergeAndDeduplicateDraws(previousDraws, draws)
+      })
       setDataSource('api-live')
       setLastRefreshAt(new Date().toISOString())
       const saved = await persistCurrentGameDraws(draws, selectedGame)
