@@ -4,7 +4,11 @@
  */
 app.get('/api/draws', (req, res) => {
   try {
-    const gameType = req.query.gameType === 'lotto' ? 'lotto' : 'eurojackpot';
+    const requestedGameType = String(req.query.gameType || 'eurojackpot').toLowerCase();
+    if (requestedGameType !== 'eurojackpot' && requestedGameType !== 'lotto') {
+      return res.status(400).json({ success: false, error: 'Invalid gameType' });
+    }
+    const gameType = requestedGameType;
     const filename = gameType === 'eurojackpot' ? 'eurojackpot_draws.json' : 'lotto_draws.json';
     const filepath = path.join(DATA_DIR, filename);
     if (!fs.existsSync(filepath)) {
@@ -100,12 +104,20 @@ if (!fs.existsSync(BACKUP_DIR)) {
  */
 app.post('/api/save-draws', (req, res) => {
   try {
-    const { gameType, draws } = req.body
+    const { gameType: rawGameType, draws } = req.body
+    const gameType = String(rawGameType || '').toLowerCase()
 
     if (!gameType || !Array.isArray(draws)) {
       return res.status(400).json({
         success: false,
         error: 'Missing gameType or draws array'
+      })
+    }
+
+    if (gameType !== 'eurojackpot' && gameType !== 'lotto') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid gameType'
       })
     }
 

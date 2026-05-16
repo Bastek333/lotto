@@ -115,10 +115,10 @@ export default function App(): JSX.Element {
   const persistCurrentGameDraws = async (drawsToSave: Draw[], selectedGame: GameType = gameType) => {
     try {
       if (selectedGame === 'eurojackpot') {
-        const result = await saveEuroJackpotDrawsToBackend(false, drawsToSave)
+        const result = await saveEuroJackpotDrawsToBackend(true, drawsToSave)
         return Boolean(result?.success)
       } else {
-        const result = await saveLottoDrawsToBackend(false, drawsToSave)
+        const result = await saveLottoDrawsToBackend(true, drawsToSave)
         return Boolean(result?.success)
       }
     } catch (error) {
@@ -379,9 +379,13 @@ export default function App(): JSX.Element {
 
         return mergeAndDeduplicateDraws(previousDraws, draws)
       })
+      const baselineDrawsForPersistence = data
+        ? data
+        : normalizeDrawsForGame(getAllCachedDraws(selectedGame) as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
+      const mergedDrawsForPersistence = mergeAndDeduplicateDraws(baselineDrawsForPersistence, draws)
       setDataSource('api-live')
       setLastRefreshAt(new Date().toISOString())
-      const saved = await persistCurrentGameDraws(draws, selectedGame)
+      const saved = await persistCurrentGameDraws(mergedDrawsForPersistence, selectedGame)
       if (saved) {
         setLastServerSaveAt(new Date().toISOString())
       }

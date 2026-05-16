@@ -203,6 +203,7 @@ export async function saveDrawsToBackend(uploadToServer: boolean = false, drawsT
     }
 
     console.log(`📤 Saving ${draws.length} EuroJackpot draws...`)
+    const shouldUploadToServer = uploadToServer || !import.meta.env.DEV
 
     const response = await fetch(SAVE_DRAWS_ENDPOINT, {
       method: 'POST',
@@ -212,7 +213,7 @@ export async function saveDrawsToBackend(uploadToServer: boolean = false, drawsT
       body: JSON.stringify({
         gameType: 'eurojackpot',
         draws: draws,
-        uploadToServer: uploadToServer,
+        uploadToServer: shouldUploadToServer,
         timestamp: new Date().toISOString()
       })
     })
