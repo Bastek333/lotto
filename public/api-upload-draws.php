@@ -103,6 +103,19 @@ function drawCompletenessScore(array $draw): int {
     return ($mainCount * 100) + $euroCount;
 }
 
+function toDateKey($dateValue): string {
+    if (is_string($dateValue) && preg_match('/^(\d{4}-\d{2}-\d{2})/', $dateValue, $matches)) {
+        return $matches[1];
+    }
+
+    $timestamp = strtotime((string)$dateValue);
+    if ($timestamp === false) {
+        return is_string($dateValue) ? $dateValue : '';
+    }
+
+    return date('Y-m-d', $timestamp);
+}
+
 function mergeDrawsByDate(array $existingDraws, array $incomingDraws): array {
     $merged = [];
 
@@ -110,7 +123,12 @@ function mergeDrawsByDate(array $existingDraws, array $incomingDraws): array {
         if (!is_array($draw) || empty($draw['drawDate'])) {
             continue;
         }
-        $merged[$draw['drawDate']] = $draw;
+        $dateKey = toDateKey($draw['drawDate']);
+        if ($dateKey === '') {
+            continue;
+        }
+        $draw['drawDate'] = $dateKey;
+        $merged[$dateKey] = $draw;
     }
 
     foreach ($incomingDraws as $draw) {
@@ -118,7 +136,11 @@ function mergeDrawsByDate(array $existingDraws, array $incomingDraws): array {
             continue;
         }
 
-        $dateKey = $draw['drawDate'];
+        $dateKey = toDateKey($draw['drawDate']);
+        if ($dateKey === '') {
+            continue;
+        }
+        $draw['drawDate'] = $dateKey;
         if (!isset($merged[$dateKey])) {
             $merged[$dateKey] = $draw;
             continue;

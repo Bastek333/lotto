@@ -53,25 +53,49 @@ function normalizeDrawCollection(raw) {
   return []
 }
 
+function toDateKey(dateValue) {
+  if (typeof dateValue === 'string') {
+    const directDateMatch = dateValue.match(/^(\d{4}-\d{2}-\d{2})/)
+    if (directDateMatch) {
+      return directDateMatch[1]
+    }
+  }
+
+  const parsedDate = new Date(dateValue)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return typeof dateValue === 'string' ? dateValue : ''
+  }
+
+  const year = parsedDate.getFullYear()
+  const month = `${parsedDate.getMonth() + 1}`.padStart(2, '0')
+  const day = `${parsedDate.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function mergeDrawsByDate(existingDraws, incomingDraws) {
   const merged = new Map()
 
   for (const draw of existingDraws) {
     if (!draw || !draw.drawDate) continue
-    merged.set(draw.drawDate, draw)
+    const dateKey = toDateKey(draw.drawDate)
+    if (!dateKey) continue
+    merged.set(dateKey, { ...draw, drawDate: dateKey })
   }
 
   for (const draw of incomingDraws) {
     if (!draw || !draw.drawDate) continue
+    const dateKey = toDateKey(draw.drawDate)
+    if (!dateKey) continue
+    const normalizedDraw = { ...draw, drawDate: dateKey }
 
-    const current = merged.get(draw.drawDate)
+    const current = merged.get(dateKey)
     if (!current) {
-      merged.set(draw.drawDate, draw)
+      merged.set(dateKey, normalizedDraw)
       continue
     }
 
-    if (getCompletenessScore(draw) >= getCompletenessScore(current)) {
-      merged.set(draw.drawDate, { ...current, ...draw })
+    if (getCompletenessScore(normalizedDraw) >= getCompletenessScore(current)) {
+      merged.set(dateKey, { ...current, ...normalizedDraw })
     }
   }
 

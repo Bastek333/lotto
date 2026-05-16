@@ -35,6 +35,25 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+function toDateKey(dateValue: string | Date): string {
+  if (typeof dateValue === 'string') {
+    const directDateMatch = dateValue.match(/^(\d{4}-\d{2}-\d{2})/)
+    if (directDateMatch) {
+      return directDateMatch[1]
+    }
+  }
+
+  const parsedDate = dateValue instanceof Date ? dateValue : new Date(dateValue)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return typeof dateValue === 'string' ? dateValue : ''
+  }
+
+  const year = parsedDate.getFullYear()
+  const month = `${parsedDate.getMonth() + 1}`.padStart(2, '0')
+  const day = `${parsedDate.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 /**
  * Get cached draw from localStorage by date
  */
@@ -77,15 +96,31 @@ export function getAllCachedDraws(): EuroJackpotDraw[] {
   const draws: EuroJackpotDraw[] = []
   try {
     const prefix = `${CACHE_KEY}_${CACHE_VERSION}_`
+    const keysToRemove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
       if (key && key.startsWith(prefix)) {
         const cached = localStorage.getItem(key)
         if (cached) {
-          draws.push(JSON.parse(cached))
+          const parsedDraw = JSON.parse(cached) as EuroJackpotDraw
+          const cachedDateKey = key.replace(prefix, '')
+          const normalizedDateKey = getCacheDate(parsedDraw.drawDate, parsedDraw.drawSystemId)
+          const normalizedDraw: EuroJackpotDraw = {
+            ...parsedDraw,
+            drawDate: normalizedDateKey
+          }
+
+          if (normalizedDateKey !== cachedDateKey && !normalizedDateKey.startsWith('draw_')) {
+            saveCachedDraw(normalizedDateKey, normalizedDraw)
+            keysToRemove.push(key)
+          }
+
+          draws.push(normalizedDraw)
         }
       }
     }
+
+    keysToRemove.forEach(key => localStorage.removeItem(key))
   } catch (error) {
     console.warn('Error reading all cached draws:', error)
   }
@@ -329,7 +364,7 @@ function generateAllDrawDates(startFromDate?: string | Date): Date[] {
     currentDate.setDate(currentDate.getDate() + 1)
   }
   
-  console.log(`Generated ${drawDates.length} potential draw dates from 2017 to ${endDate.toISOString().split('T')[0]} (current time: ${now.toLocaleTimeString()})`)
+  console.log(`Generated ${drawDates.length} potential draw dates from 2017 to ${toDateKey(endDate)} (current time: ${now.toLocaleTimeString()})`)
   return drawDates
 }
 
@@ -354,7 +389,7 @@ export async function fetchEuroJackpotResults(refetchIncompleteDatesOnly: boolea
       return getAllCachedDraws()
     }
   } else if (startFromDate) {
-    console.log(`Strategy: Fetch only EuroJackpot draws from ${new Date(startFromDate).toISOString().split('T')[0]} to current`)
+    console.log(`Strategy: Fetch only EuroJackpot draws from ${toDateKey(startFromDate)} to current`)
   } else {
     console.log('Strategy: Fetch by specific draw dates (2017 to current) with localStorage caching')
   }
@@ -372,7 +407,7 @@ export async function fetchEuroJackpotResults(refetchIncompleteDatesOnly: boolea
     // Process dates in reverse order (newest first)
     for (let i = allDrawDates.length - 1; i >= 0; i--) {
       const drawDate = allDrawDates[i]
-      const dateStr = drawDate.toISOString().split('T')[0]
+      const dateStr = toDateKey(drawDate)
       
       if ((allDrawDates.length - i) % 50 === 0) {
         console.log(`Progress: ${allDrawDates.length - i}/${allDrawDates.length} dates processed (${cachedCount} from cache, ${apiCallCount} from API)...`)
@@ -446,9 +481,10 @@ export async function fetchEuroJackpotResults(refetchIncompleteDatesOnly: boolea
  * Returns null if no draw exists on that date
  */
 async function fetchEuroJackpotBySpecificDate(drawDate: Date): Promise<EuroJackpotDraw | null> {
+  const requestedDateKey = toDateKey(drawDate)
   const params = new URLSearchParams({
     gameType: 'EuroJackpot',
-    drawDate: drawDate.toISOString(),
+    drawDate: `${requestedDateKey}T12:00:00.000Z`,
     index: '1',
     size: '1',
     sort: 'drawDate',
@@ -502,15 +538,9 @@ async function fetchEuroJackpotBySpecificDate(drawDate: Date): Promise<EuroJackp
   
   // Verify the returned draw matches our requested date (same day)
   const returnedDraw = items[0] as LottoApiDrawResult
-  const returnedDate = new Date(returnedDraw.drawDate)
-  const requestedDate = new Date(drawDate)
-  
-  // Compare dates (ignore time)
-  if (
-    returnedDate.getFullYear() === requestedDate.getFullYear() &&
-    returnedDate.getMonth() === requestedDate.getMonth() &&
-    returnedDate.getDate() === requestedDate.getDate()
-  ) {
+  const returnedDateKey = toDateKey(returnedDraw.drawDate)
+
+  if (returnedDateKey === requestedDateKey) {
     return parseDrawResult(returnedDraw)
   }
   
@@ -543,9 +573,9 @@ function hydrateLocalCache(draws: EuroJackpotDraw[]): void {
 }
 
 function getCacheDate(drawDate: string, drawSystemId: number): string {
-  const parsed = new Date(drawDate)
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.toISOString().split('T')[0]
+  const normalizedDateKey = toDateKey(drawDate)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedDateKey)) {
+    return normalizedDateKey
   }
 
   // Fallback keeps entry accessible even for legacy/non-ISO date formats.
@@ -580,31 +610,8 @@ function parseDrawResult(draw: LottoApiDrawResult): EuroJackpotDraw {
 
   return {
     drawSystemId: draw.drawSystemId,
-    drawDate: formatDrawDate(draw.drawDate),
+    drawDate: toDateKey(draw.drawDate),
     numbers: mainNumbers,
     euroNumbers: euroNumbers
   }
-}
-
-/**
- * Converts ISO date string to a readable format
- */
-function formatDrawDate(dateText: string): string {
-  if (!dateText) return ''
-  
-  try {
-    const date = new Date(dateText)
-    
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      })
-    }
-  } catch (error) {
-    console.warn('Error parsing date:', dateText)
-  }
-  
-  return dateText
 }
