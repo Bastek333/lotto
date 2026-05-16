@@ -178,6 +178,7 @@ app.get('/api/draws', (req, res) => {
     const decoded = JSON.parse(data)
 
     if (decoded && typeof decoded === 'object' && decoded.games && decoded.games[requestedGameType]) {
+      // Combined file format: { games: { eurojackpot: { meta, draws }, lotto: { meta, draws } } }
       const gamePayload = decoded.games[requestedGameType]
       const draws = normalizeDrawCollection(gamePayload)
       const lastFetchedAt = gamePayload.meta?.lastFetchedAt || new Date(fs.statSync(freshestPath).mtimeMs).toISOString()
@@ -188,6 +189,19 @@ app.get('/api/draws', (req, res) => {
           source: gamePayload.meta?.source || 'combined-server-json'
         },
         draws
+      })
+    }
+
+    if (decoded && typeof decoded === 'object' && Array.isArray(decoded.draws) && decoded.meta) {
+      // Per-game file format: { meta, draws } (written by dev server or PHP)
+      const lastFetchedAt = decoded.meta.lastFetchedAt || new Date(fs.statSync(freshestPath).mtimeMs).toISOString()
+      return res.json({
+        meta: {
+          gameType: requestedGameType,
+          lastFetchedAt,
+          source: decoded.meta.source || 'server-json'
+        },
+        draws: decoded.draws
       })
     }
 
@@ -248,8 +262,18 @@ app.post('/api/save-draws', (req, res) => {
     const existingDraws = normalizeDrawCollection(existingRaw)
     const mergedDraws = mergeDrawsByDate(existingDraws, draws)
 
-    // Write merged data
-    const jsonData = JSON.stringify(mergedDraws, null, 2)
+    // Write merged data with meta wrapper (consistent with PHP backend)
+    const saveTimestamp = req.body.timestamp || new Date().toISOString()
+    const perGamePayload = {
+      meta: {
+        gameType,
+        lastFetchedAt: saveTimestamp,
+        drawsCount: mergedDraws.length,
+        source: req.body.source || 'web-app'
+      },
+      draws: mergedDraws
+    }
+    const jsonData = JSON.stringify(perGamePayload, null, 2)
     fs.writeFileSync(primaryPath, jsonData)
 
     // Keep legacy path in sync for older tooling that still reads src/data.
@@ -273,12 +297,12 @@ app.post('/api/save-draws', (req, res) => {
     }
 
     const combinedPayload = normalizeCombinedPayload(existingCombined)
-    combinedPayload.meta.lastUpdatedAt = new Date().toISOString()
+    combinedPayload.meta.lastUpdatedAt = saveTimestamp
     combinedPayload.meta.source = req.body.source || 'web-app'
     combinedPayload.games[gameType] = {
       meta: {
         gameType,
-        lastFetchedAt: req.body.timestamp || new Date().toISOString(),
+        lastFetchedAt: saveTimestamp,
         drawsCount: mergedDraws.length,
         source: req.body.source || 'web-app'
       },
