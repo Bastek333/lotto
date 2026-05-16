@@ -220,53 +220,79 @@ type PersistableEuroJackpotDraw = Omit<Partial<EuroJackpotDraw>, 'jackpotAmount'
 }
 
 export async function saveDrawsToBackend(uploadToServer: boolean = false, drawsToSave?: PersistableEuroJackpotDraw[]): Promise<any> {
-  try {
-    const normalizedDraws = drawsToSave?.map(draw => ({
-      ...draw,
-      drawSystemId: typeof draw.drawSystemId === 'number' ? draw.drawSystemId : 0,
-      euroNumbers: Array.isArray(draw.euroNumbers) ? draw.euroNumbers : [],
-      jackpotAmount: typeof draw.jackpotAmount === 'string' ? Number(draw.jackpotAmount) : draw.jackpotAmount
-    })) as EuroJackpotDraw[] | undefined
+  const normalizedDraws = drawsToSave?.map(draw => ({
+    ...draw,
+    drawSystemId: typeof draw.drawSystemId === 'number' ? draw.drawSystemId : 0,
+    euroNumbers: Array.isArray(draw.euroNumbers) ? draw.euroNumbers : [],
+    jackpotAmount: typeof draw.jackpotAmount === 'string' ? Number(draw.jackpotAmount) : draw.jackpotAmount
+  })) as EuroJackpotDraw[] | undefined
 
-    const draws = drawsToSave && drawsToSave.length > 0
-      ? sortAndDeduplicate(normalizedDraws ?? [])
-      : getAllCachedDraws()
-    
-    if (draws.length === 0) {
-      console.warn('No draws to save')
-      return null
-    }
-
-    console.log(`📤 Saving ${draws.length} EuroJackpot draws...`)
-    const shouldUploadToServer = uploadToServer || !import.meta.env.DEV
-
-    const response = await fetch(SAVE_DRAWS_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        gameType: 'eurojackpot',
-        draws: draws,
-        uploadToServer: shouldUploadToServer,
-        timestamp: new Date().toISOString()
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error(`Server responded with status ${response.status}`)
-    }
-
-    const result = await response.json()
-    console.log(`✅ Successfully saved to backend:`, result)
-    return result
-  } catch (error) {
-    console.error('Error saving draws to backend:', error)
-    // Fallback to browser download
-    console.log('Falling back to browser download...')
-    downloadDrawsAsJson()
+  const draws = drawsToSave && drawsToSave.length > 0
+    ? sortAndDeduplicate(normalizedDraws ?? [])
+    : getAllCachedDraws()
+  
+  if (draws.length === 0) {
+    console.warn('No draws to save')
     return null
   }
+
+  console.log(`📤 Saving ${draws.length} EuroJackpot draws...`)
+  const shouldUploadToServer = uploadToServer || !import.meta.env.DEV
+  const saveEndpoints = import.meta.env.DEV
+    ? [SAVE_DRAWS_ENDPOINT]
+    : [
+      SAVE_DRAWS_ENDPOINT,
+      '/api-upload-draws.php'
+    ]
+
+  const saveErrors: string[] = []
+  for (const endpoint of saveEndpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'same-origin',
+        cache: 'no-store',
+        body: JSON.stringify({
+          gameType: 'eurojackpot',
+          draws,
+          uploadToServer: shouldUploadToServer,
+          source: 'web-app',
+          timestamp: new Date().toISOString()
+        })
+      })
+
+      const responseText = await response.text()
+      if (!response.ok) {
+        saveErrors.push(`${endpoint}: HTTP ${response.status} ${response.statusText} ${responseText}`)
+        continue
+      }
+
+      let result: any = null
+      try {
+        result = responseText ? JSON.parse(responseText) : null
+      } catch {
+        saveErrors.push(`${endpoint}: Invalid JSON response`)
+        continue
+      }
+
+      if (!result?.success) {
+        saveErrors.push(`${endpoint}: Save not acknowledged (${result?.error || result?.message || 'unknown error'})`)
+        continue
+      }
+
+      console.log(`✅ Successfully saved to backend via ${endpoint}:`, result)
+      return result
+    } catch (error: any) {
+      saveErrors.push(`${endpoint}: ${error?.message || String(error)}`)
+    }
+  }
+
+  const aggregatedMessage = saveErrors.join(' | ')
+  console.error('Error saving draws to backend:', aggregatedMessage)
+  throw new Error(aggregatedMessage)
 }
 
 /**
@@ -275,10 +301,11 @@ export async function saveDrawsToBackend(uploadToServer: boolean = false, drawsT
  */
 export async function fetchSavedDrawsFromServer(): Promise<{ draws: EuroJackpotDraw[]; lastFetchedAt: string | null }> {
   try {
-    const response = await fetch(`${READ_DRAWS_ENDPOINT}?gameType=eurojackpot`, {
+    const response = await fetch(`${READ_DRAWS_ENDPOINT}?gameType=eurojackpot&t=${Date.now()}`, {
       headers: {
         'Accept': 'application/json'
-      }
+      },
+      cache: 'no-store'
     })
 
     if (!response.ok) {

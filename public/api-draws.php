@@ -34,14 +34,40 @@ if (!in_array($gameType, ['eurojackpot', 'lotto'], true)) {
 $filename = $gameType === 'eurojackpot' ? 'eurojackpot_draws.json' : 'lotto_draws.json';
 $primaryPath = __DIR__ . '/' . $filename;
 $legacyPath = __DIR__ . '/data/' . $filename;
-$filepath = file_exists($primaryPath) ? $primaryPath : $legacyPath;
+$parentPath = dirname(__DIR__) . '/' . $filename;
 
-if (!file_exists($filepath)) {
+function getFreshestExistingPath(array $paths): ?string {
+    $freshestPath = null;
+    $freshestMTime = -1;
+
+    foreach ($paths as $path) {
+        if (!file_exists($path)) {
+            continue;
+        }
+
+        $mtime = @filemtime($path);
+        if ($mtime === false) {
+            $mtime = 0;
+        }
+
+        if ($freshestPath === null || $mtime > $freshestMTime) {
+            $freshestPath = $path;
+            $freshestMTime = $mtime;
+        }
+    }
+
+    return $freshestPath;
+}
+
+$candidatePaths = array_values(array_unique([$primaryPath, $legacyPath, $parentPath]));
+$filepath = getFreshestExistingPath($candidatePaths);
+
+if ($filepath === null || !file_exists($filepath)) {
     http_response_code(404);
     echo json_encode([
         'success' => false,
         'error' => 'Draws file not found',
-        'expected' => [$primaryPath, $legacyPath]
+        'expected' => $candidatePaths
     ]);
     exit;
 }

@@ -152,7 +152,7 @@ export default function App(): JSX.Element {
       return {
         success: false,
         filepath: null,
-        message: null
+        message: error instanceof Error ? error.message : String(error)
       }
     }
   }
@@ -357,6 +357,8 @@ export default function App(): JSX.Element {
             setLastServerSaveAt(new Date().toISOString())
             setLastServerSavePath(saved.filepath)
             setLastServerSaveMessage(saved.message)
+          } else {
+            setLastServerSaveMessage(saved.message || 'Server save failed')
           }
           return
         }
@@ -381,6 +383,8 @@ export default function App(): JSX.Element {
         setLastServerSaveAt(new Date().toISOString())
         setLastServerSavePath(saved.filepath)
         setLastServerSaveMessage(saved.message)
+      } else {
+        setLastServerSaveMessage(saved.message || 'Server save failed')
       }
     } catch (e: any) {
       const gameName = selectedGame === 'eurojackpot' ? 'EuroJackpot' : 'Lotto'
@@ -428,6 +432,8 @@ export default function App(): JSX.Element {
         setLastServerSaveAt(new Date().toISOString())
         setLastServerSavePath(saved.filepath)
         setLastServerSaveMessage(saved.message)
+      } else {
+        setLastServerSaveMessage(saved.message || 'Server save failed')
       }
     } catch (e: any) {
       console.error('Failed to refetch incomplete draws', e)

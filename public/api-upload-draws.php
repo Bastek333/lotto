@@ -76,6 +76,8 @@ if (!is_dir($legacyDrawsDataDir)) {
 $filename = $gameType === 'eurojackpot' ? 'eurojackpot_draws.json' : 'lotto_draws.json';
 $filepath = __DIR__ . '/' . $filename;
 $legacyFilepath = $legacyDrawsDataDir . '/' . $filename;
+$parentFilepath = dirname(__DIR__) . '/' . $filename;
+$writeCandidates = array_values(array_unique([$filepath, $legacyFilepath, $parentFilepath]));
 $backupName = $gameType . '_draws_' . str_replace([':', '-'], '', $timestamp) . '.json';
 $backupPath = $backupDir . '/' . $backupName;
 
@@ -161,10 +163,35 @@ function mergeDrawsByDate(array $existingDraws, array $incomingDraws): array {
     return $mergedDraws;
 }
 
+function getFreshestExistingPath(array $paths): ?string {
+    $freshestPath = null;
+    $freshestMTime = -1;
+
+    foreach ($paths as $path) {
+        if (!file_exists($path)) {
+            continue;
+        }
+
+        $mtime = @filemtime($path);
+        if ($mtime === false) {
+            $mtime = 0;
+        }
+
+        if ($freshestPath === null || $mtime > $freshestMTime) {
+            $freshestPath = $path;
+            $freshestMTime = $mtime;
+        }
+    }
+
+    return $freshestPath;
+}
+
 try {
-    // Create backup of existing file if it exists (primary or legacy path)
-    $existingFileForBackup = file_exists($filepath) ? $filepath : $legacyFilepath;
-    if (file_exists($existingFileForBackup)) {
+    $existingPath = getFreshestExistingPath($writeCandidates);
+
+    // Create backup of existing file if it exists
+    if ($existingPath !== null && file_exists($existingPath)) {
+        $existingFileForBackup = $existingPath;
         $existingData = file_get_contents($existingFileForBackup);
         if (@file_put_contents($backupPath, $existingData)) {
             $response['details']['backup'] = [
@@ -175,8 +202,7 @@ try {
     }
 
     $existingRaw = [];
-    $existingPath = file_exists($filepath) ? $filepath : $legacyFilepath;
-    if (file_exists($existingPath)) {
+    if ($existingPath !== null && file_exists($existingPath)) {
         $decoded = json_decode(file_get_contents($existingPath), true);
         if (is_array($decoded)) {
             $existingRaw = $decoded;
@@ -198,12 +224,20 @@ try {
     ];
 
     $jsonData = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    
-    if (@file_put_contents($filepath, $jsonData)) {
+
+    $savedPaths = [];
+    foreach ($writeCandidates as $candidatePath) {
+        if (@file_put_contents($candidatePath, $jsonData) !== false) {
+            $savedPaths[] = $candidatePath;
+        }
+    }
+
+    if (count($savedPaths) > 0) {
         $response['success'] = true;
         $response['message'] = "Successfully saved {$gameType} draws to server";
         $response['details']['saved'] = [
-            'filepath' => $filepath,
+            'filepath' => $savedPaths[0],
+            'mirroredPaths' => $savedPaths,
             'size' => strlen($jsonData)
         ];
         $response['details']['merged'] = [
@@ -213,7 +247,7 @@ try {
         ];
         http_response_code(200);
     } else {
-        throw new Exception("Cannot write to {$filepath} - check permissions");
+        throw new Exception('Cannot write to any draw file path - check permissions');
     }
 } catch (Exception $e) {
     http_response_code(500);
