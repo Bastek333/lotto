@@ -59,6 +59,7 @@ export default function App(): JSX.Element {
     const saved = localStorage.getItem('uiLanguage')
     return saved === 'en' ? 'en' : 'pl'
   })
+  const [saveAlert, setSaveAlert] = useState<string | null>(null)
   const [gameType, setGameType] = useState<GameType>(() => {
     const saved = localStorage.getItem('selectedGame')
     return (saved === 'lotto' ? 'lotto' : 'eurojackpot') as GameType
@@ -135,6 +136,11 @@ export default function App(): JSX.Element {
     try {
       if (selectedGame === 'eurojackpot') {
         const result = await saveEuroJackpotDrawsToBackend(true, drawsToSave)
+        if (!result?.success) {
+          setSaveAlert(`EuroJackpot save failed: ${result?.error || result?.message || 'Unknown error'}`)
+        } else {
+          setSaveAlert(null)
+        }
         return {
           success: Boolean(result?.success),
           filepath: getPersistedFilepath(result),
@@ -142,13 +148,19 @@ export default function App(): JSX.Element {
         }
       } else {
         const result = await saveLottoDrawsToBackend(true, drawsToSave)
+        if (!result?.success) {
+          setSaveAlert(`Lotto save failed: ${result?.error || result?.message || 'Unknown error'}`)
+        } else {
+          setSaveAlert(null)
+        }
         return {
           success: Boolean(result?.success),
           filepath: getPersistedFilepath(result),
           message: getPersistMessage(result)
         }
       }
-    } catch (error) {
+    } catch (error: any) {
+      setSaveAlert(`${selectedGame === 'eurojackpot' ? 'EuroJackpot' : 'Lotto'} save error: ${error?.message || String(error)}`)
       console.warn(`Failed to persist ${selectedGame} draws to backend:`, error)
       return {
         success: false,
@@ -323,46 +335,52 @@ export default function App(): JSX.Element {
 
         if (hasServerBaseline) {
           const gameName = selectedGame === 'eurojackpot' ? 'EuroJackpot' : 'Lotto'
-          let gapBackfillStatus: GapBackfillStatus | null = null
-          console.log(`Checking for updated ${gameName} data from ${incrementalStartDate ? new Date(incrementalStartDate).toISOString().split('T')[0] : '2017-01-03'} to current...`)
-          const apiDraws = await fetchResults(false, selectedGame, incrementalStartDate)
-          const incrementalDraws = normalizeDrawsForGame(apiDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
-          let mergedDraws = mergeAndDeduplicateDraws(normalizedServerDraws.length > 0 ? normalizedServerDraws : normalizedCachedDraws, incrementalDraws)
+            let gapBackfillStatus: GapBackfillStatus | null = null
+            console.log(`Checking for updated ${gameName} data from ${incrementalStartDate ? new Date(incrementalStartDate).toISOString().split('T')[0] : '2017-01-03'} to current...`)
+            const apiDraws = await fetchResults(false, selectedGame, incrementalStartDate)
+            const incrementalDraws = normalizeDrawsForGame(apiDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
+            let mergedDraws = mergeAndDeduplicateDraws(normalizedServerDraws.length > 0 ? normalizedServerDraws : normalizedCachedDraws, incrementalDraws)
 
-          const newestMissingDate = findNewestMissingDrawDate(mergedDraws, selectedGame)
-          if (newestMissingDate) {
-            console.log(`Detected missing ${gameName} draws near latest history at ${newestMissingDate}, backfilling from that date...`)
-            const beforeGapBackfillCount = mergedDraws.length
-            const gapFillApiDraws = await fetchResults(false, selectedGame, newestMissingDate)
-            const gapFillDraws = normalizeDrawsForGame(gapFillApiDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
-            mergedDraws = mergeAndDeduplicateDraws(mergedDraws, gapFillDraws)
-            const addedCount = Math.max(mergedDraws.length - beforeGapBackfillCount, 0)
-            gapBackfillStatus = {
-              at: new Date().toISOString(),
-              fromDate: newestMissingDate,
-              fetchedCount: gapFillDraws.length,
-              addedCount
+            // Loop gap-filling until no more missing draws
+            let loopCount = 0
+            while (true) {
+              const newestMissingDate = findNewestMissingDrawDate(mergedDraws, selectedGame)
+              if (!newestMissingDate) break
+              loopCount++
+              console.log(`Detected missing ${gameName} draws near latest history at ${newestMissingDate}, backfilling from that date... (loop ${loopCount})`)
+              const beforeGapBackfillCount = mergedDraws.length
+              const gapFillApiDraws = await fetchResults(false, selectedGame, newestMissingDate)
+              const gapFillDraws = normalizeDrawsForGame(gapFillApiDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
+              mergedDraws = mergeAndDeduplicateDraws(mergedDraws, gapFillDraws)
+              const addedCount = Math.max(mergedDraws.length - beforeGapBackfillCount, 0)
+              gapBackfillStatus = {
+                at: new Date().toISOString(),
+                fromDate: newestMissingDate,
+                fetchedCount: gapFillDraws.length,
+                addedCount
+              }
+              console.log(`Backfilled ${gapFillDraws.length} draws from missing range, ${mergedDraws.length} total after merge`)
+              // Optionally: break if no new draws were added (to avoid infinite loop on API issues)
+              if (addedCount === 0) break
             }
-            console.log(`Backfilled ${gapFillDraws.length} draws from missing range, ${mergedDraws.length} total after merge`)
-          }
 
-          console.log(`Loaded ${incrementalDraws.length} incremental draws from API, ${mergedDraws.length} total after merge`)
-          if (activeGameRef.current !== selectedGame) {
+            console.log(`Loaded ${incrementalDraws.length} incremental draws from API, ${mergedDraws.length} total after merge`)
+            if (activeGameRef.current !== selectedGame) {
+              return
+            }
+            setData(mergedDraws)
+            setDataSource(incrementalDraws.length > 0 ? 'api-live' : (serverState.draws.length > 0 ? 'server-json' : 'local-cache'))
+            setLastRefreshAt(new Date().toISOString())
+            setLastGapBackfill(gapBackfillStatus)
+            const saved = await persistCurrentGameDraws(mergedDraws, selectedGame)
+            if (saved.success) {
+              setLastServerSaveAt(new Date().toISOString())
+              setLastServerSavePath(saved.filepath)
+              setLastServerSaveMessage(saved.message)
+            } else {
+              setLastServerSaveMessage(saved.message || 'Server save failed')
+            }
             return
-          }
-          setData(mergedDraws)
-          setDataSource(incrementalDraws.length > 0 ? 'api-live' : (serverState.draws.length > 0 ? 'server-json' : 'local-cache'))
-          setLastRefreshAt(new Date().toISOString())
-          setLastGapBackfill(gapBackfillStatus)
-          const saved = await persistCurrentGameDraws(mergedDraws, selectedGame)
-          if (saved.success) {
-            setLastServerSaveAt(new Date().toISOString())
-            setLastServerSavePath(saved.filepath)
-            setLastServerSaveMessage(saved.message)
-          } else {
-            setLastServerSaveMessage(saved.message || 'Server save failed')
-          }
-          return
         }
       }
       
@@ -653,6 +671,11 @@ export default function App(): JSX.Element {
 
   return (
     <div className="app">
+      {saveAlert && (
+        <div style={{ background: '#ffdddd', color: '#a00', padding: '8px', marginBottom: '8px', border: '1px solid #a00', borderRadius: '4px', fontWeight: 'bold', zIndex: 1000 }}>
+          {saveAlert}
+        </div>
+      )}
       <header>
         <div style={{ marginBottom: '15px' }}>
           <h1>{gameType === 'eurojackpot' ? 'Eurojackpot Draw Results' : 'Lotto Draw Results'}</h1>

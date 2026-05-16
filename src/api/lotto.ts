@@ -549,40 +549,44 @@ async function fetchLottoBySpecificDate(drawDate: Date): Promise<LottoDraw | nul
     }
   }
 
-  const response = await fetch(url, { headers })
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      // No draw on this date
+  try {
+    const response = await fetch(url, { headers })
+    if (!response.ok) {
+      if (response.status === 404) {
+        // No draw on this date (not an error)
+        return null
+      }
+      if (response.status === 429) {
+        // Rate limited - wait 10 seconds before retrying
+        console.warn('Rate limited (429), waiting 10 seconds before retry...')
+        await delay(60001)
+        throw new Error('429')
+      }
+      // For other errors, log and skip
+      console.warn(`Lotto API: ${response.status} ${response.statusText} for ${url}`)
       return null
     }
-    if (response.status === 429) {
-      // Rate limited - wait 10 seconds before retrying
-      console.warn('Rate limited (429), waiting 10 seconds before retry...')
-      await delay(60001)
-      throw new Error('429')
+    const data = await response.json()
+    // Handle paginated response structure
+    const items = data.items || data.results || (Array.isArray(data) ? data : [])
+    if (!items || items.length === 0) {
+      return null
     }
-    throw new Error(`API returned ${response.status}: ${response.statusText}`)
-  }
-
-  const data = await response.json()
-  
-  // Handle paginated response structure
-  const items = data.items || data.results || (Array.isArray(data) ? data : [])
-  
-  if (items.length === 0) {
+    // Verify the returned draw matches our requested date (same day)
+    const returnedDraw = items[0] as LottoApiDrawResult
+    const returnedDateKey = toDateKey(returnedDraw.drawDate)
+    if (returnedDateKey === requestedDateKey) {
+      return parseDrawResult(returnedDraw)
+    }
+    return null
+  } catch (err: any) {
+    // Network or parsing error, treat as no data for this date
+    if (err?.message?.includes('404')) {
+      return null
+    }
+    console.warn(`Lotto fetch error for ${requestedDateKey}:`, err?.message || err)
     return null
   }
-  
-  // Verify the returned draw matches our requested date (same day)
-  const returnedDraw = items[0] as LottoApiDrawResult
-  const returnedDateKey = toDateKey(returnedDraw.drawDate)
-
-  if (returnedDateKey === requestedDateKey) {
-    return parseDrawResult(returnedDraw)
-  }
-  
-  return null
 }
 
 /**
