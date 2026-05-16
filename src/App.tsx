@@ -275,10 +275,15 @@ export default function App(): JSX.Element {
     try {
       // First, load server-saved data (unless forcing refetch)
       if (!forceRefetch) {
+        console.log(`Clearing ${selectedGame} local cache before loading server baseline...`)
+        clearCurrentGameCache(selectedGame)
+
         const serverState = await getSavedServerDraws(selectedGame)
         const normalizedServerDraws = normalizeDrawsForGame(serverState.draws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
 
-        if (serverState.draws.length > 0 && isLikelyValidDataset(normalizedServerDraws, selectedGame)) {
+        const hasValidServerDataset = serverState.draws.length > 0 && isLikelyValidDataset(normalizedServerDraws, selectedGame)
+
+        if (hasValidServerDataset) {
           console.log(`Loaded ${serverState.draws.length} ${selectedGame} draws from server JSON`)
           if (activeGameRef.current === selectedGame) {
             setData(normalizedServerDraws)
@@ -291,16 +296,15 @@ export default function App(): JSX.Element {
         const cachedDraws = getAllCachedDraws(selectedGame)
         const normalizedCachedDraws = normalizeDrawsForGame(cachedDraws as Array<Draw & { jackpotAmount?: string | number }>, selectedGame)
 
-        if (serverState.draws.length === 0 && cachedDraws.length > 0 && isLikelyValidDataset(normalizedCachedDraws, selectedGame)) {
+        if (!hasValidServerDataset && cachedDraws.length > 0 && isLikelyValidDataset(normalizedCachedDraws, selectedGame)) {
           console.log(`Loaded ${cachedDraws.length} draws from cache`)
           if (activeGameRef.current === selectedGame) {
             setData(normalizedCachedDraws)
             setDataSource('local-cache')
             setLastRefreshAt(new Date().toISOString())
           }
-        } else if (cachedDraws.length > 0) {
-          console.warn(`Ignoring invalid ${selectedGame} cache dataset (${cachedDraws.length} draws)`)
-          clearCurrentGameCache(selectedGame)
+        } else if (!hasValidServerDataset && cachedDraws.length > 0) {
+          console.warn(`Ignoring invalid ${selectedGame} cache dataset (${cachedDraws.length} draws), keeping cache untouched`)
         }
 
         // If cache contains incomplete rows, update those in background while full refresh continues.
